@@ -4,7 +4,8 @@
 
 | Path | Purpose |
 |------|---------|
-| `src/teams-export-prototype.js` | Main export tool — self-contained IIFE injected into Teams |
+| `src/` | TypeScript source modules (entry point: `src/main.ts`) |
+| `dist/` | Built content script IIFE bundle (gitignored) |
 | `extension-src/` | Chrome MV3 extension source (manifest, background script, icons) |
 | `extension-dist/` | Built extension output (gitignored) |
 | `scripts/` | Build, packaging, validation, and probe automation |
@@ -27,11 +28,13 @@ npm install
 
 | Command | Description |
 |---------|-------------|
-| `npm run build:extension` | Build unpacked extension into `extension-dist/` |
-| `npm run package:extension` | Build and zip extension to `artifacts/teams-selected-messages-export-extension.zip` |
-| `npm test` | Run unit and integration tests |
-| `npm run test:unit` | Unit tests only |
-| `npm run test:integration` | Integration tests (requires Chrome/Chromium) |
+| `npm run build` | Bundle TypeScript source into `dist/content-script.js` |
+| `npm run typecheck` | Run TypeScript type checking without emitting |
+| `npm run build:extension` | Build bundle and copy to unpacked extension in `extension-dist/` |
+| `npm run package:extension` | Build, copy, and zip extension to `artifacts/teams-selected-messages-export-extension.zip` |
+| `npm test` | Build, then run unit and integration tests |
+| `npm run test:unit` | Unit tests only (TypeScript and MJS) |
+| `npm run test:integration` | Integration tests (requires Chrome/Chromium and a prior build) |
 | `npm run test:e2e` | End-to-end validation against live Teams (requires signed-in Chrome debug session) |
 | `npm run chrome:launch` | Launch a dedicated Chrome debug instance |
 | `npm run chrome:launch:extension` | Launch Chrome with extension preloaded on debug port `9223` |
@@ -42,18 +45,41 @@ npm install
 
 ## Architecture
 
-The export tool is a single self-contained IIFE (`src/teams-export-prototype.js`) that:
+The export tool is built from modular TypeScript source files in `src/`, bundled by esbuild into a single IIFE (`dist/content-script.js`) that:
 
 1. Injects export controls into the Teams title bar
 2. Manages message selection state via DOM event listeners
 3. Scrapes message content, replies, reactions, and metadata from the Teams DOM
 4. Exports to Markdown or HTML with formatted output
 
-When packaged as a Chrome extension, the content script is a copy of this IIFE injected at `document_idle` on Teams pages, with a background service worker handling the extension action click.
+### Source modules
+
+| Module | Responsibility |
+|--------|---------------|
+| `main.ts` | Entry point — wires callbacks, orchestrates startup |
+| `types.ts` | All TypeScript interfaces |
+| `constants.ts` | CSS class names, DOM selectors, timing values |
+| `state.ts` | Singleton state object and callback registry |
+| `utilities.ts` | Pure utility functions and DOM predicates |
+| `styles.ts` | CSS stylesheet generation |
+| `theme.ts` | Teams light/dark theme detection |
+| `conversation.ts` | Conversation title/key detection from DOM |
+| `content-extraction.ts` | DOM content extraction (mentions, images, quotes, reactions) |
+| `strategy.ts` | DOM strategy scoring and message row detection |
+| `messages.ts` | Message record building from DOM elements |
+| `selection.ts` | Pure selection helpers (range, ordering) |
+| `markdown-renderer.ts` | Markdown conversion and document rendering |
+| `html-renderer.ts` | HTML document rendering for export |
+| `export-helpers.ts` | Export payload creation, download triggers, clipboard |
+| `history.ts` | Full chat history scroll harvesting |
+| `toolbar.ts` | Toolbar DOM creation, dock positioning, busy state |
+| `lifecycle.ts` | Global event handlers, MutationObserver, extension bridge |
+
+When packaged as a Chrome extension, the bundled content script is injected at `document_idle` on Teams pages, with a background service worker handling the extension action click.
 
 ### Injection mode (development)
 
-For rapid iteration, paste or inject `src/teams-export-prototype.js` directly into the Teams DevTools console. The script exposes `window.__teamsMessageExporter` for debugging.
+For rapid iteration, build with `npm run build` and then inject `dist/content-script.js` into the Teams DevTools console. The script exposes `window.__teamsMessageExporter` for debugging.
 
 ### Validation harnesses
 
@@ -70,7 +96,7 @@ Both write artifacts to `artifacts/exports/` and `artifacts/screenshots/`.
 
 ## Testing
 
-- **Unit tests** (`tests/unit/`) — pure function tests for worker-probe summarization helpers
+- **Unit tests** (`tests/unit/`) — TypeScript tests for core functions (utilities, selection, renderers, export helpers) and MJS tests for worker-probe summarization helpers
 - **Integration tests** (`tests/integration/`) — run the export UI against a local Teams-like HTML fixture in headless Chrome via Puppeteer
 - **E2E tests** — reuse the extension validation harness against a live signed-in Teams session
 

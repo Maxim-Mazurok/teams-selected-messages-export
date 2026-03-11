@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const extensionSrcDir = path.join(rootDir, "extension-src");
 const extensionDistDir = path.join(rootDir, "extension-dist");
-const sourceScriptPath = path.join(rootDir, "src", "teams-export-prototype.js");
+const sourceScriptPath = path.join(rootDir, "dist", "content-script.js");
 
 export async function build() {
   await fs.rm(extensionDistDir, { recursive: true, force: true });

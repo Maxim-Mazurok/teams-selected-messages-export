@@ -9,7 +9,7 @@ import { findChromeExecutable } from "../helpers/chrome-path.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
-const sourcePath = path.join(rootDir, "src", "teams-export-prototype.js");
+const sourcePath = path.join(rootDir, "dist", "content-script.js");
 const fixturePath = path.join(rootDir, "tests", "fixtures", "teams-fixture.html");
 
 async function injectPrototype(page) {

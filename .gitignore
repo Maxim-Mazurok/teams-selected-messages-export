@@ -1,5 +1,6 @@
 .DS_Store
 artifacts/
+dist/
 extension-dist/
 npm-debug.log*
 node_modules/
