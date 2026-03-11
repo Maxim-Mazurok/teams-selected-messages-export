@@ -17,9 +17,7 @@ A Chrome extension that lets you select and export Microsoft Teams messages to M
 
 ## Demo
 
-https://github.com/user-attachments/assets/demo.mp4
-
-_(The video file is at [assets/demo.mp4](assets/demo.mp4))_
+<video src="https://github.com/Maxim-Mazurok/teams-selected-messages-export/releases/download/v0.1.0-4/demo.mp4" controls width="100%"></video>
 
 ## Screenshots
 
