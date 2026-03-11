@@ -1,0 +1,22 @@
+{
+  "name": "teams-selected-messages-export",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:extension": "node ./scripts/build-extension.mjs",
+    "chrome:launch": "./scripts/start-chrome-debug.sh",
+    "chrome:launch:extension": "./scripts/start-chrome-debug-with-extension.sh",
+    "extension:load": "node ./scripts/load-unpacked-extension.mjs",
+    "package:extension": "node ./scripts/package-extension.mjs",
+    "probe:worker": "node ./scripts/probe-worker-intercepts.mjs",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:e2e": "npm run validate:extension",
+    "test:integration": "node --test ./tests/integration/*.test.mjs",
+    "test:unit": "node --test ./tests/unit/*.test.mjs",
+    "validate:extension": "node ./scripts/validate-installed-extension.mjs",
+    "validate:live": "node ./scripts/validate-live-prototype.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.39.0"
+  }
+}

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fixture Chat | Microsoft Teams</title>
+    <style>
+      body {
+        margin: 0;
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #111827;
+        color: #f8fafc;
+      }
+
+      [data-tid="title-bar"] {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 48px;
+        padding: 0 14px;
+        background: #0b1220;
+      }
+
+      [data-tid="titlebar-end-slot"] {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      #titlebar-end-slot-start {
+        display: flex;
+        align-items: center;
+      }
+
+      .native-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .native-controls button {
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: #1f2937;
+        color: inherit;
+      }
+
+      main {
+        max-width: 840px;
+        margin: 0 auto;
+        padding: 24px 32px 40px;
+      }
+
+      [data-tid="chat-title"] {
+        margin-bottom: 20px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      [data-tid="message-pane-list-runway"] {
+        display: grid;
+        gap: 14px;
+      }
+
+      [data-tid="chat-pane-item"] {
+        position: relative;
+        padding: 16px 18px 16px 28px;
+        border-radius: 18px;
+        background: #1f2937;
+      }
+
+      [data-tid="message-author-name"] {
+        font-weight: 700;
+      }
+
+      time {
+        display: inline-block;
+        margin: 4px 0 10px;
+        color: #cbd5e1;
+      }
+
+      [data-tid="quoted-reply-card"] {
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        border-left: 3px solid #60a5fa;
+        border-radius: 0 12px 12px 0;
+        background: rgba(96, 165, 250, 0.12);
+      }
+
+      [data-tid="chat-pane-message"] p {
+        margin: 0 0 8px;
+      }
+
+      .reaction-strip {
+        margin-top: 10px;
+      }
+
+      .reaction-strip button {
+        border: 0;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        padding: 6px 10px;
+      }
+
+      .reaction-strip span {
+        position: absolute;
+        left: -9999px;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-tid="title-bar">
+      <div>Fixture Teams</div>
+      <div data-tid="titlebar-end-slot">
+        <div id="titlebar-end-slot-start"></div>
+        <div class="native-controls">
+          <button type="button" data-tid="more-options-header" aria-label="Settings and more">...</button>
+          <button type="button" data-tid="me-control-avatar-trigger" aria-label="Your profile">MM</button>
+        </div>
+      </div>
+    </div>
+    <main>
+      <div data-tid="chat-title">Fixture Chat</div>
+      <div data-tid="message-pane-list-runway">
+        <div data-tid="chat-pane-item" data-message-id="m1">
+          <div data-testid="message-wrapper">
+            <div data-tid="message-author-name">Alice Example</div>
+            <time datetime="2026-03-11T08:58:00.000Z">08:58</time>
+            <div data-tid="chat-pane-message">
+              <p>Hello <span itemtype="http://schema.skype.com/Mention" aria-label="Mentioned Maxim Mazurok">Maxim Mazurok</span></p>
+            </div>
+          </div>
+        </div>
+        <div data-tid="chat-pane-item" data-message-id="m2">
+          <div data-testid="message-wrapper">
+            <div data-tid="message-author-name">Bob Example</div>
+            <time datetime="2026-03-11T09:00:00.000Z">09:00</time>
+            <div data-tid="quoted-reply-card">
+              <span>Alice Example</span>
+              <span data-tid="quoted-reply-timestamp">08:58</span>
+              <div data-tid="quoted-reply-preview-content">Hello Maxim Mazurok</div>
+            </div>
+            <div data-tid="chat-pane-message">
+              <p>Replying to the note above.</p>
+            </div>
+            <div class="reaction-strip">
+              <button
+                type="button"
+                data-tid="diverse-reaction-pill-button"
+                title="like by Jonathan Clegg"
+                aria-labelledby="reaction-m2"
+              >
+                <img alt="👍" itemtype="http://schema.skype.com/Emoji" />
+              </button>
+              <span id="reaction-m2">1 like reactions.</span>
+            </div>
+          </div>
+        </div>
+        <div data-tid="chat-pane-item" data-message-id="m3">
+          <div data-testid="message-wrapper">
+            <div data-tid="message-author-name">Maxim Mazurok</div>
+            <time datetime="2026-03-11T09:02:00.000Z">09:02</time>
+            <div data-tid="chat-pane-message">
+              <p>An image follows.</p>
+              <p>
+                <img
+                  itemscope="png"
+                  itemtype="http://schema.skype.com/AMSImage"
+                  src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+                  alt="image"
+                  itemid="fixture-image"
+                />
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

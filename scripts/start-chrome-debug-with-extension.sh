@@ -1,0 +1,32 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PROFILE_DIR="$ROOT_DIR/.runtime/chrome-extension-profile"
+DEBUG_PORT="${DEBUG_PORT:-9223}"
+TARGET_URL="${1:-https://teams.microsoft.com}"
+CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+EXTENSION_DIR="$ROOT_DIR/extension-dist"
+
+if [[ ! -x "$CHROME_BIN" ]]; then
+  echo "Google Chrome was not found at $CHROME_BIN" >&2
+  exit 1
+fi
+
+if [[ ! -f "$EXTENSION_DIR/manifest.json" ]]; then
+  echo "Extension build not found. Run: npm run build:extension" >&2
+  exit 1
+fi
+
+mkdir -p "$PROFILE_DIR"
+
+open -na "Google Chrome" --args \
+  --remote-debugging-port="$DEBUG_PORT" \
+  --user-data-dir="$PROFILE_DIR" \
+  --load-extension="$EXTENSION_DIR" \
+  --new-window \
+  "$TARGET_URL"
+
+echo "Chrome launched with remote debugging on port $DEBUG_PORT and extension loaded"
+echo "Profile directory: $PROFILE_DIR"
