@@ -515,7 +515,7 @@
     header.className = HEADER_CLASS;
 
     const title = document.createElement("h1");
-    title.textContent = "Teams Message Export";
+    title.textContent = "Teams Selected Messages Export";
 
     const description = document.createElement("p");
     description.dataset.role = "description";

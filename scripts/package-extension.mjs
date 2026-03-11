@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const extensionDistDir = path.join(rootDir, "extension-dist");
 const artifactsDir = path.join(rootDir, "artifacts");
-const outputPath = path.join(artifactsDir, "teams-message-export-extension.zip");
+const outputPath = path.join(artifactsDir, "teams-selected-messages-export-extension.zip");
 
 async function zipWith(command, args, options) {
   try {

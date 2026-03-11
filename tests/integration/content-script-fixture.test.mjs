@@ -161,7 +161,7 @@ test("fixture flow keeps panel copy contextual, keeps the action grid stable, an
     assert.match(copiedState.copiedText, /@Maxim Mazurok/);
     assert.match(copiedState.copiedText, /> Replying to Alice Example \| 08:58/);
     assert.match(copiedState.copiedText, /\[Image omitted\]/);
-    assert.match(copiedState.copiedText, /Reactions: 👍 like by Jonathan Clegg/);
+    assert.match(copiedState.copiedText, /Reactions: 👍 like by Jane Doe/);
 
     const fullHistoryResult = await page.evaluate(async () => {
       const result = await window.__teamsMessageExporter.exportFullHistory("md", {

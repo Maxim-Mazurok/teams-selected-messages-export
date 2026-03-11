@@ -16,8 +16,8 @@ This file captures live DOM notes, validation status, and extension-packaging co
 - A local Chrome DevTools Protocol harness was added as fallback after the Playwright MCP transport became unusable during browser reset.
 - Live validation succeeded on Wednesday, March 11, 2026 in a dedicated Chrome instance using the local DevTools Protocol harness.
 - Validated conversation types:
-  - Direct chat: `Oliver Huang`
-  - Group chat: `Front-end community`
+  - Direct chat (1:1)
+  - Group chat
 - For both validations:
   - selection mode loaded successfully
   - row click selection worked
@@ -27,10 +27,10 @@ This file captures live DOM notes, validation status, and extension-packaging co
   - screenshots were captured under `artifacts/screenshots`
 - Validation summary is stored at `artifacts/validation-summary.json`.
 - `artifacts/validation-summary.json` is the canonical final result set. Additional export files may exist from intermediate exploratory passes.
-- Reply export validation succeeded on Wednesday, March 11, 2026 against a replied message in `Front-end community`.
+- Reply export validation succeeded on Wednesday, March 11, 2026 against a replied message in a group chat.
 - Quote-specific validation artifacts:
-  - `artifacts/exports/front-end-community-quote-check-2026-03-11T08-10-59-748Z.md`
-  - `artifacts/screenshots/front-end-community-quote-check-2026-03-11T08-10-59-748Z.png`
+  - `artifacts/exports/<conversation>-quote-check-<timestamp>.md`
+  - `artifacts/screenshots/<conversation>-quote-check-<timestamp>.png`
 - The Markdown export now emits replied-to messages as a real blockquote with reply author and timestamp before the reply body.
 - Inline mention handling was corrected so tagged users stay in-flow as `@Name` instead of being broken across lines in Markdown.
 - Export timestamps now use the browser's local time zone in a human-readable long date format instead of raw ISO timestamps.
@@ -54,14 +54,14 @@ This file captures live DOM notes, validation status, and extension-packaging co
 - Selected messages now use both the left accent rail and a tinted background fill, so the selected state remains obvious even when the thread is visually dense.
 - When the active Teams thread changes, the extension now resets the old selection state and rebinds against the new chat so selection can continue immediately instead of getting stuck on the previous conversation.
 - The panel now exposes both `Full chat MD` and `Full chat HTML`, which scroll upward through the current conversation, accumulate message snapshots in memory, restore the approximate original viewport, and then download the harvested history in the requested format.
-- Installed extension validation succeeded on Wednesday, March 11, 2026 against `Tariff Management Team Chat (any topic)` in Chrome on debug port `9222`.
+- Installed extension validation succeeded on Wednesday, March 11, 2026 against a group chat in Chrome on debug port `9222`.
 - Installed extension artifacts are stored at:
   - `artifacts/installed-extension-validation.json`
   - `artifacts/exports/maxim-mazurok-you-installed-extension-2026-03-11T09-57-50-716Z-downloads`
   - `artifacts/screenshots/maxim-mazurok-you-installed-extension-2026-03-11T09-57-50-716Z.png`
 - The latest installed validation summary now includes `panelClosedAfterPanelCopy: true` and `selectionStoppedAfterPanelCopy: true`.
 - The latest installed validation summary also includes `fullChatHeadingCount: 9` and `fullChatScopePresent: true`, confirming the real `Full Chat MD` path produced a larger Markdown export than the 3-message selection smoke.
-- A publishable zip for the current build is now written to `artifacts/teams-message-export-extension.zip`.
+- A publishable zip for the current build is now written to `artifacts/teams-selected-messages-export-extension.zip`.
 - The installed validator now uses real pointer clicks on the page instead of the page-world prototype API, which matters because extension content scripts run in an isolated world.
 - A live network capture on Wednesday, March 11, 2026 showed that Teams `chatsvc` message responses already include structured reaction data in the response body:
   - `annotationsSummary.emotions`
