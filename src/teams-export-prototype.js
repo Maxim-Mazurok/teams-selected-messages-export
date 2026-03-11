@@ -25,12 +25,29 @@
   const HIDDEN_CHECKBOX_CLASS = `${CHECKBOX_CLASS}--hidden`;
   const BODY_ACTIVE_CLASS = `${UI_CLASS}--selection-active`;
   const RUNWAY_SELECTOR = '[data-tid="message-pane-list-runway"], #chat-pane-list';
+  const HISTORY_LOADING_SELECTOR = [
+    '[role="progressbar"]',
+    '[aria-busy="true"]',
+    '[data-tid*="loading" i]',
+    '[data-tid*="spinner" i]',
+    '[data-tid*="loader" i]',
+    '[data-testid*="loading" i]',
+    '[data-testid*="spinner" i]',
+    '[data-testid*="loader" i]'
+  ].join(", ");
+  const HISTORY_POLL_INTERVAL_MS = 120;
+  const HISTORY_SETTLE_MS = 260;
+  const HISTORY_SETTLE_TOP_MS = 720;
+  const HISTORY_MAX_WAIT_MS = 1100;
+  const HISTORY_MAX_WAIT_TOP_MS = 3200;
+  const HISTORY_TOP_STAGNANT_PASSES = 2;
   const HEADER_SLOT_SELECTORS = [
     "#titlebar-end-slot-start",
     '[data-tid="titlebar-end-slot"]'
   ];
   const FALLBACK_DOCK_TOP = 10;
   const FALLBACK_DOCK_RIGHT = 200;
+  const CONVERSATION_POLL_MS = 750;
   const CONTENT_PRUNE_SELECTOR = [
     `.${UI_CLASS}__toolbar`,
     `.${CHECKBOX_CLASS}`,
@@ -81,9 +98,15 @@
     observer: null,
     themeMediaQuery: null,
     refreshTimer: null,
+    conversationPollTimer: null,
     startupTimers: [],
     selectStartHandler: null,
     resizeHandler: null,
+    focusHandler: null,
+    visibilityHandler: null,
+    pageShowHandler: null,
+    popStateHandler: null,
+    hashChangeHandler: null,
     busy: false,
     busyText: "",
     messages: [],
@@ -1332,6 +1355,23 @@
     return messages;
   }
 
+  function hasDisconnectedMessages() {
+    return state.messages.length > 0 && state.messages.every((message) => !message.element?.isConnected);
+  }
+
+  function checkConversationState() {
+    if (state.busy || !state.toolbar) {
+      return;
+    }
+
+    const nextConversationKey = getConversationKey();
+    const conversationChanged = Boolean(state.conversationKey) && nextConversationKey !== state.conversationKey;
+
+    if (conversationChanged || hasDisconnectedMessages()) {
+      refreshMessages();
+    }
+  }
+
   function cleanupOrphanedDecorations() {
     document.querySelectorAll(`.${MESSAGE_CLASS}`).forEach((element) => {
       if (!state.messages.some((message) => message.element === element)) {
@@ -1944,6 +1984,24 @@
     return document.querySelector(RUNWAY_SELECTOR);
   }
 
+  function isElementVisible(element) {
+    if (!element || !element.isConnected) {
+      return false;
+    }
+
+    const styles = window.getComputedStyle(element);
+    if (styles.display === "none" || styles.visibility === "hidden" || styles.opacity === "0") {
+      return false;
+    }
+
+    if (element.hidden || element.getAttribute("aria-hidden") === "true") {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
   function isScrollableElement(element) {
     if (!element || element === document.body) {
       return false;
@@ -2022,11 +2080,86 @@
     };
   }
 
+  function getVisibleHistoryRows(strategy) {
+    if (!strategy) {
+      return [];
+    }
+
+    return Array.from(document.querySelectorAll(strategy.rowSelector)).filter(isLikelyMessageRow);
+  }
+
   function getHistorySignature(messages, scrollContainer) {
     const firstId = messages[0]?.id || "none";
     const lastId = messages[messages.length - 1]?.id || "none";
     const top = Math.round(scrollContainer.scrollTop || 0);
-    return `${firstId}|${lastId}|${messages.length}|${top}`;
+    const height = Math.round(scrollContainer.scrollHeight || 0);
+    return `${firstId}|${lastId}|${messages.length}|${top}|${height}`;
+  }
+
+  function getRowHistorySignature(rows, scrollContainer) {
+    const firstId = rows[0] ? getMessageId(rows[0], 0) : "none";
+    const lastId = rows.length ? getMessageId(rows[rows.length - 1], rows.length - 1) : "none";
+    const top = Math.round(scrollContainer.scrollTop || 0);
+    const height = Math.round(scrollContainer.scrollHeight || 0);
+    return `${firstId}|${lastId}|${rows.length}|${top}|${height}`;
+  }
+
+  function hasActiveHistoryLoadingIndicator(strategy, scrollContainer) {
+    const roots = [getRunwayElement(), scrollContainer, scrollContainer?.parentElement, scrollContainer?.closest("[role='main']")];
+    const rowSelector = strategy?.rowSelector || "";
+    const seen = new Set();
+
+    return roots
+      .filter(Boolean)
+      .some((root) => {
+        if (seen.has(root)) {
+          return false;
+        }
+
+        seen.add(root);
+
+        return Array.from(root.querySelectorAll(HISTORY_LOADING_SELECTOR)).some((candidate) => {
+          if (!isElementVisible(candidate)) {
+            return false;
+          }
+
+          if (rowSelector && candidate.closest(rowSelector)) {
+            return false;
+          }
+
+          return true;
+        });
+      });
+  }
+
+  async function waitForHistoryToSettle(strategy, scrollContainer) {
+    const nearTop = scrollContainer.scrollTop <= 4;
+    const quietWindowMs = nearTop ? HISTORY_SETTLE_TOP_MS : HISTORY_SETTLE_MS;
+    const maxWaitMs = nearTop ? HISTORY_MAX_WAIT_TOP_MS : HISTORY_MAX_WAIT_MS;
+    const startedAt = performance.now();
+    let lastChangeAt = startedAt;
+    let lastSignature = getRowHistorySignature(getVisibleHistoryRows(strategy), scrollContainer);
+    let lastLoadingState = hasActiveHistoryLoadingIndicator(strategy, scrollContainer);
+
+    while (performance.now() - startedAt < maxWaitMs) {
+      await waitForDelay(HISTORY_POLL_INTERVAL_MS);
+
+      const currentSignature = getRowHistorySignature(getVisibleHistoryRows(strategy), scrollContainer);
+      const loadingIndicatorVisible = hasActiveHistoryLoadingIndicator(strategy, scrollContainer);
+      const now = performance.now();
+
+      if (currentSignature !== lastSignature || loadingIndicatorVisible !== lastLoadingState) {
+        lastChangeAt = now;
+        lastSignature = currentSignature;
+        lastLoadingState = loadingIndicatorVisible;
+      }
+
+      if (!loadingIndicatorVisible && now - lastChangeAt >= quietWindowMs) {
+        break;
+      }
+    }
+
+    return getRowHistorySignature(getVisibleHistoryRows(strategy), scrollContainer);
   }
 
   async function harvestFullChatMessages() {
@@ -2052,7 +2185,7 @@
         const beforeTop = scrollContainer.scrollTop;
         const scrollStep = Math.max(260, Math.round((scrollContainer.clientHeight || window.innerHeight || 800) * 0.82));
         scrollContainer.scrollTop = Math.max(0, beforeTop - scrollStep);
-        await waitForDelay(beforeTop <= 4 ? 420 : 240);
+        await waitForHistoryToSettle(strategy, scrollContainer);
 
         const afterCollect = collectVisibleMessagesIntoMap(strategy, harvestedMap, captureOrder);
         captureOrder = afterCollect.nextCaptureOrder;
@@ -2070,7 +2203,7 @@
 
         previousSignature = currentSignature;
 
-        if (reachedTop && stagnantPasses >= 3) {
+        if (reachedTop && stagnantPasses >= HISTORY_TOP_STAGNANT_PASSES) {
           break;
         }
       }
@@ -2145,6 +2278,43 @@
     if (!state.themeMediaQuery && window.matchMedia) {
       state.themeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       state.themeMediaQuery.addEventListener?.("change", applyTheme);
+    }
+
+    if (!state.focusHandler) {
+      state.focusHandler = checkConversationState;
+      window.addEventListener("focus", state.focusHandler, { passive: true });
+    }
+
+    if (!state.visibilityHandler) {
+      state.visibilityHandler = () => {
+        if (document.visibilityState !== "hidden") {
+          checkConversationState();
+        }
+      };
+      document.addEventListener("visibilitychange", state.visibilityHandler, { passive: true });
+    }
+
+    if (!state.pageShowHandler) {
+      state.pageShowHandler = checkConversationState;
+      window.addEventListener("pageshow", state.pageShowHandler, { passive: true });
+    }
+
+    if (!state.popStateHandler) {
+      state.popStateHandler = checkConversationState;
+      window.addEventListener("popstate", state.popStateHandler, { passive: true });
+    }
+
+    if (!state.hashChangeHandler) {
+      state.hashChangeHandler = checkConversationState;
+      window.addEventListener("hashchange", state.hashChangeHandler, { passive: true });
+    }
+
+    if (!state.conversationPollTimer) {
+      state.conversationPollTimer = window.setInterval(() => {
+        if (document.visibilityState !== "hidden") {
+          checkConversationState();
+        }
+      }, CONVERSATION_POLL_MS);
     }
   }
 
@@ -2222,6 +2392,30 @@
     }
     if (state.resizeHandler) {
       window.removeEventListener("resize", state.resizeHandler);
+    }
+    if (state.focusHandler) {
+      window.removeEventListener("focus", state.focusHandler);
+      state.focusHandler = null;
+    }
+    if (state.visibilityHandler) {
+      document.removeEventListener("visibilitychange", state.visibilityHandler);
+      state.visibilityHandler = null;
+    }
+    if (state.pageShowHandler) {
+      window.removeEventListener("pageshow", state.pageShowHandler);
+      state.pageShowHandler = null;
+    }
+    if (state.popStateHandler) {
+      window.removeEventListener("popstate", state.popStateHandler);
+      state.popStateHandler = null;
+    }
+    if (state.hashChangeHandler) {
+      window.removeEventListener("hashchange", state.hashChangeHandler);
+      state.hashChangeHandler = null;
+    }
+    if (state.conversationPollTimer) {
+      window.clearInterval(state.conversationPollTimer);
+      state.conversationPollTimer = null;
     }
     if (state.themeMediaQuery) {
       state.themeMediaQuery.removeEventListener?.("change", applyTheme);
