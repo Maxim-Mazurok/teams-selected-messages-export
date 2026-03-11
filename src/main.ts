@@ -448,6 +448,7 @@ function start(): void {
       },
       onTogglePanel: () => {
         if (state.panelOpen) {
+          setActive(false);
           setPanelOpen(false);
           return;
         }
