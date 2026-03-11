@@ -305,6 +305,8 @@ function setPanelOpen(open: boolean): void {
     if (!state.messages.length) {
       refreshMessages();
     }
+  } else if (state.active) {
+    setActive(false);
   }
 
   updateToolbar();
@@ -448,7 +450,6 @@ function start(): void {
       },
       onTogglePanel: () => {
         if (state.panelOpen) {
-          setActive(false);
           setPanelOpen(false);
           return;
         }

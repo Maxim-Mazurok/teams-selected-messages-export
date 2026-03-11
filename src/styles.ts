@@ -363,8 +363,13 @@ export function generateStylesheet(): string {
       display: none;
     }
 
-    body.${BODY_ACTIVE_CLASS} ${RUNWAY_SELECTOR},
-    body.${BODY_ACTIVE_CLASS} ${RUNWAY_SELECTOR} * {
+    ${RUNWAY_SELECTOR.split(",")
+      .map((selector) => selector.trim())
+      .flatMap((selector) => [
+        `body.${BODY_ACTIVE_CLASS} ${selector}`,
+        `body.${BODY_ACTIVE_CLASS} ${selector} *`
+      ])
+      .join(",\n    ")} {
       user-select: none;
       -webkit-user-select: none;
     }
