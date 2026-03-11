@@ -7,7 +7,9 @@ import {
   HISTORY_SETTLE_TOP_MS,
   HISTORY_MAX_WAIT_MS,
   HISTORY_MAX_WAIT_TOP_MS,
-  HISTORY_TOP_STAGNANT_PASSES
+  HISTORY_TOP_STAGNANT_PASSES,
+  HISTORY_CONTENT_STAGNANT_PASSES,
+  HISTORY_MAX_PASSES
 } from "./constants.js";
 import { getMessageId, isLikelyMessageRow } from "./strategy.js";
 import { getVisibleMessageRecords, snapshotMessageRecord } from "./messages.js";
@@ -217,10 +219,11 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
   const harvestedMap = new Map<string, MessageSnapshot>();
   let captureOrder = 0;
   let stagnantPasses = 0;
+  let contentStagnantPasses = 0;
   let previousSignature = "";
 
   try {
-    for (let pass = 0; pass < 160; pass += 1) {
+    for (let pass = 0; pass < HISTORY_MAX_PASSES; pass += 1) {
       const beforeCollect = collectVisibleMessagesIntoMap(
         strategy,
         harvestedMap,
@@ -262,6 +265,7 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
       const discoveredNewData =
         harvestedMap.size > sizeBeforeScroll ||
         currentSignature !== previousSignature;
+      const discoveredNewMessages = harvestedMap.size > sizeBeforeScroll;
 
       if (reachedTop && !discoveredNewData) {
         stagnantPasses += 1;
@@ -269,9 +273,19 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
         stagnantPasses = 0;
       }
 
+      if (!discoveredNewMessages) {
+        contentStagnantPasses += 1;
+      } else {
+        contentStagnantPasses = 0;
+      }
+
       previousSignature = currentSignature;
 
       if (reachedTop && stagnantPasses >= HISTORY_TOP_STAGNANT_PASSES) {
+        break;
+      }
+
+      if (contentStagnantPasses >= HISTORY_CONTENT_STAGNANT_PASSES) {
         break;
       }
     }

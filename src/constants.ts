@@ -41,6 +41,8 @@ export const HISTORY_SETTLE_TOP_MS = 720;
 export const HISTORY_MAX_WAIT_MS = 1_100;
 export const HISTORY_MAX_WAIT_TOP_MS = 3_200;
 export const HISTORY_TOP_STAGNANT_PASSES = 2;
+export const HISTORY_CONTENT_STAGNANT_PASSES = 8;
+export const HISTORY_MAX_PASSES = 2_000;
 
 export const HEADER_SLOT_SELECTORS = [
   "#titlebar-end-slot-start",
