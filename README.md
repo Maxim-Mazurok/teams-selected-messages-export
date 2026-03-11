@@ -15,6 +15,13 @@ A Chrome extension that lets you select and export Microsoft Teams messages to M
 - **Theme-aware UI** — follows Teams light/dark theme automatically
 - **Non-intrusive** — export controls embed into the Teams title bar
 
+## Screenshots
+
+![Selecting messages](artifacts/screenshots/screenshot-1.png)
+![Export panel](artifacts/screenshots/screenshot-2.png)
+![Markdown export](artifacts/screenshots/screenshot-3.png)
+![HTML export](artifacts/screenshots/screenshot-4.png)
+
 ## Install
 
 1. Download the latest `teams-selected-messages-export-extension.zip` from [Releases](../../releases/latest).
