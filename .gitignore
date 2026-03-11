@@ -5,3 +5,4 @@ extension-dist/
 npm-debug.log*
 node_modules/
 .runtime/
+.playwright-mcp/
