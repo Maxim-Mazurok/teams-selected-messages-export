@@ -144,8 +144,7 @@ export function extractPlainText(element: HTMLElement, strategy: Strategy | null
   return normalizeText(getPreparedContentClone(element, strategy).textContent || "");
 }
 
-export function extractQuotedReply(element: HTMLElement): QuotedReply | null {
-  const card = element.querySelector('[data-tid="quoted-reply-card"]');
+export function extractQuotedReplyFromCard(card: Element | null): QuotedReply | null {
   if (!card) {
     return null;
   }
@@ -166,6 +165,11 @@ export function extractQuotedReply(element: HTMLElement): QuotedReply | null {
     timeLabel,
     text: previewText
   };
+}
+
+export function extractQuotedReply(element: HTMLElement): QuotedReply | null {
+  const card = element.querySelector('[data-tid="quoted-reply-card"]');
+  return extractQuotedReplyFromCard(card);
 }
 
 export function extractReactionActors(button: Element, labelText: string): string[] {
