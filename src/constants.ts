@@ -22,7 +22,16 @@ export const CHECKBOX_CLASS = `${UI_CLASS}__checkbox`;
 export const HIDDEN_CHECKBOX_CLASS = `${CHECKBOX_CLASS}--hidden`;
 export const BODY_ACTIVE_CLASS = `${UI_CLASS}--selection-active`;
 
-export const RUNWAY_SELECTOR = '[data-tid="message-pane-list-runway"], #chat-pane-list, [data-tid="channel-pane-runway"]';
+export const RUNWAY_SELECTOR = [
+  '[data-tid="message-pane-list-runway"]',
+  '#chat-pane-list',
+  '[data-tid="channel-pane-runway"]',
+  '[data-tid="channel-replies-runway"]',
+  '[data-tid="reply-thread-pane-runway"]',
+  '[data-tid="reply-chain-pane-runway"]',
+  '[data-tid="thread-pane-list-runway"]',
+  '[data-tid="message-pane-list"]'
+].join(", ");
 
 export const HISTORY_LOADING_SELECTOR = [
   '[role="progressbar"]',
@@ -81,7 +90,8 @@ export const STRATEGIES: Strategy[] = [
   },
   {
     name: "teams-channel-pane-message",
-    rowSelector: '[data-tid="channel-pane-message"], [data-tid="response-surface"] [role="group"]',
+    rowSelector:
+      '[data-tid="channel-pane-message"], [data-tid="channel-replies-pane-message"], [data-tid="response-surface"] [role="group"]',
     contentSelector: '[data-tid="message-body"]',
     authorSelector: '[data-tid="post-message-subheader"] span[id^="author-"], [data-tid="reply-message-header"] span[id^="author-"]',
     timeSelector: '[data-tid="timestamp"], time'

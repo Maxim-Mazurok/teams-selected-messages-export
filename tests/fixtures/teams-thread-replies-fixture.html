@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI for Developers | Microsoft Teams</title>
+    <style>
+      body {
+        margin: 0;
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #111827;
+        color: #f8fafc;
+      }
+
+      [data-tid="title-bar"] {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 48px;
+        padding: 0 14px;
+        background: #0b1220;
+      }
+
+      [data-tid="titlebar-end-slot"] {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      #titlebar-end-slot-start {
+        display: flex;
+        align-items: center;
+      }
+
+      .native-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .native-controls button {
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: #1f2937;
+        color: inherit;
+      }
+
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 24px 32px 40px;
+      }
+
+      [data-tid="chat-title"] {
+        margin-bottom: 16px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      [data-tid="reply-thread-pane"] {
+        display: grid;
+        gap: 14px;
+      }
+
+      [data-tid="reply-summary-header"] {
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #0f172a;
+      }
+
+      [data-tid="response-summary-button"] {
+        border: 0;
+        color: #bfdbfe;
+        background: transparent;
+        padding: 0;
+        font-weight: 600;
+        font-size: 13px;
+      }
+
+      [data-tid="quoted-reply-card"] {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-left: 3px solid #60a5fa;
+        border-radius: 0 12px 12px 0;
+        background: rgba(96, 165, 250, 0.12);
+      }
+
+      [data-tid="channel-replies-runway"] {
+        display: grid;
+        gap: 12px;
+      }
+
+      [data-tid="channel-replies-pane-message"] {
+        position: relative;
+        padding: 16px 18px 16px 28px;
+        border-radius: 18px;
+        background: #1f2937;
+      }
+
+      [data-tid="message-author-name"] {
+        font-weight: 700;
+      }
+
+      [data-tid="message-body"] p {
+        margin: 0;
+      }
+
+      time {
+        display: inline-block;
+        margin: 4px 0 10px;
+        color: #cbd5e1;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-tid="title-bar">
+      <div>Fixture Teams</div>
+      <div data-tid="titlebar-end-slot">
+        <div id="titlebar-end-slot-start"></div>
+        <div class="native-controls">
+          <button type="button" data-tid="more-options-header" aria-label="Settings and more">...</button>
+          <button type="button" data-tid="me-control-avatar-trigger" aria-label="Your profile">MM</button>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <div data-tid="chat-title">AI for Developers</div>
+      <section data-tid="reply-thread-pane" aria-label="Replies panel">
+        <header data-tid="reply-summary-header">
+          <button type="button" data-tid="response-summary-button">Open 27 replies from Priya Patel</button>
+          <div data-tid="quoted-reply-card">
+            <span>Priya Patel</span>
+            <span data-tid="quoted-reply-timestamp">09:18</span>
+            <div data-tid="quoted-reply-preview-content">Can we standardize our AI coding review checklist for Friday?</div>
+          </div>
+        </header>
+
+        <div data-tid="channel-replies-runway">
+          <article data-tid="channel-replies-pane-message" data-message-id="r1">
+            <div data-tid="post-message-subheader">
+              <span id="author-post-r1">Priya Patel</span>
+              <span data-tid="timestamp">09:18</span>
+              <time datetime="2026-03-12T09:18:00.000Z">09:18</time>
+              <div data-tid="subject-line">Can we standardize our AI coding review checklist for Friday?</div>
+            </div>
+            <div data-tid="message-body">
+              <p>Can we standardize our AI coding review checklist for Friday?</p>
+            </div>
+          </article>
+
+          <article data-tid="channel-replies-pane-message" data-message-id="r2">
+            <div data-tid="reply-message-header">
+              <span id="author-reply-r2">Alex Jordan</span>
+              <span data-tid="timestamp">09:19</span>
+              <time datetime="2026-03-12T09:19:00.000Z">09:19</time>
+            </div>
+            <div data-tid="message-body">
+              <p>I can draft a version by lunchtime.</p>
+            </div>
+          </article>
+
+          <article data-tid="channel-replies-pane-message" data-message-id="r3">
+            <div data-tid="reply-message-header">
+              <span id="author-reply-r3">Mina Chen</span>
+              <span data-tid="timestamp">09:21</span>
+              <time datetime="2026-03-12T09:21:00.000Z">09:21</time>
+            </div>
+            <div data-tid="message-body">
+              <p>Please include guidance for flaky integration tests.</p>
+            </div>
+          </article>
+
+          <article data-tid="channel-replies-pane-message" data-message-id="r4">
+            <div data-tid="reply-message-header">
+              <span id="author-reply-r4">Leo Singh</span>
+              <span data-tid="timestamp">09:24</span>
+              <time datetime="2026-03-12T09:24:00.000Z">09:24</time>
+            </div>
+            <div data-tid="message-body">
+              <p>I will add release checklist examples too.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

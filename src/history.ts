@@ -16,6 +16,8 @@ import { getVisibleMessageRecords, snapshotMessageRecord } from "./messages.js";
 import { selectStrategy } from "./strategy.js";
 import { orderMessagesForExport } from "./selection.js";
 import { state, callbacks, log } from "./state.js";
+import { extractQuotedReplyFromCard } from "./content-extraction.js";
+import { normalizeText, escapeHtml } from "./utilities.js";
 
 function waitForDelay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -207,6 +209,73 @@ function collectVisibleMessagesIntoMap(
   return { visibleMessages, nextCaptureOrder: captureOrder };
 }
 
+function getDetachedThreadOriginalCard(strategy: Strategy | null): Element | null {
+  const visibleRows = getVisibleHistoryRows(strategy);
+  const cards = Array.from(document.querySelectorAll('[data-tid="quoted-reply-card"]')).filter(
+    isElementVisible
+  );
+
+  return (
+    cards.find((card) => !visibleRows.some((rowElement) => rowElement.contains(card))) || null
+  );
+}
+
+function createThreadOriginalSnapshot(
+  strategy: Strategy | null,
+  harvestedMap: Map<string, MessageSnapshot>
+): MessageSnapshot | null {
+  const detachedCard = getDetachedThreadOriginalCard(strategy);
+  const quotedReply = extractQuotedReplyFromCard(detachedCard);
+  if (!quotedReply?.text) {
+    return null;
+  }
+
+  const plainText = normalizeText(quotedReply.text);
+  if (!plainText) {
+    return null;
+  }
+
+  const author = normalizeText(quotedReply.author || "") || "Original post";
+  const timeLabel = normalizeText(quotedReply.timeLabel || "");
+
+  const duplicateMessage = Array.from(harvestedMap.values()).some((snapshot) => {
+    return (
+      normalizeText(snapshot.author || "") === author &&
+      normalizeText(snapshot.timeLabel || "") === timeLabel &&
+      normalizeText(snapshot.plainText || "") === plainText
+    );
+  });
+
+  if (duplicateMessage) {
+    return null;
+  }
+
+  const threadOriginalId = `thread-original-${author}-${timeLabel}-${plainText}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120) || "thread-original";
+
+  if (harvestedMap.has(threadOriginalId)) {
+    return null;
+  }
+
+  return {
+    id: threadOriginalId,
+    index: -1,
+    author,
+    timeLabel,
+    dateTime: "",
+    subject: "",
+    quote: null,
+    reactions: [],
+    html: `<p>${escapeHtml(plainText)}</p>`,
+    markdown: plainText,
+    plainText,
+    captureOrder: -1
+  };
+}
+
 async function expandCollapsedReplies(): Promise<void> {
   if (document.querySelector('[data-tid="channel-pane-runway"]')) {
     return;
@@ -329,7 +398,14 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
       }
     }
 
-    return orderMessagesForExport(Array.from(harvestedMap.values()));
+    const threadOriginalSnapshot = createThreadOriginalSnapshot(strategy, harvestedMap);
+    const snapshotsForExport = Array.from(harvestedMap.values());
+
+    if (threadOriginalSnapshot) {
+      snapshotsForExport.push(threadOriginalSnapshot);
+    }
+
+    return orderMessagesForExport(snapshotsForExport);
   } finally {
     scrollContainer.scrollTop = Math.max(
       0,

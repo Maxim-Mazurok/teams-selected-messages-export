@@ -16,13 +16,14 @@ export function isLikelyMessageRow(element: Element): boolean {
     return false;
   }
 
-  const chatRunway = element.closest(RUNWAY_SELECTOR);
-  if (!chatRunway) {
-    return false;
-  }
-
   const isChannelPost = element.getAttribute("data-tid") === "channel-pane-message";
   if (isChannelPost) {
+    return Boolean(element.querySelector('[data-tid="message-body"]'));
+  }
+
+  const isChannelRepliesPaneMessage =
+    element.getAttribute("data-tid") === "channel-replies-pane-message";
+  if (isChannelRepliesPaneMessage) {
     return Boolean(element.querySelector('[data-tid="message-body"]'));
   }
 
@@ -34,10 +35,24 @@ export function isLikelyMessageRow(element: Element): boolean {
     return true;
   }
 
-  return Boolean(
+  const hasStandardMessageShape = Boolean(
     element.querySelector('[data-testid="message-wrapper"]') &&
-      element.querySelector('[data-tid="chat-pane-message"], [data-message-content]')
+      element.querySelector(
+        '[data-tid="chat-pane-message"], [data-message-content], [data-tid="message-body"], [data-tid="message-content"]'
+      )
   );
+
+  if (!hasStandardMessageShape) {
+    return false;
+  }
+
+  const chatRunway = element.closest(RUNWAY_SELECTOR);
+  if (chatRunway) {
+    return true;
+  }
+
+  // Thread reply views can render message rows in side panes outside the classic runway container.
+  return true;
 }
 
 export function scoreStrategy(strategy: Strategy): { rows: Element[]; score: number } {
