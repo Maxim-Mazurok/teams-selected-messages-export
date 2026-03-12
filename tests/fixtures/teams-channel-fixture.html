@@ -174,21 +174,23 @@
               <span id="reaction-post-1">1 like reactions.</span>
             </div>
             <div data-tid="response-surface" aria-label="1 replies">
-              <div data-tid="reply-message-header">
-                <div>
+              <div role="group">
+                <div data-tid="reply-message-header">
                   <div>
-                    <span id="author-reply-1">Bob Example</span>
+                    <div>
+                      <span id="author-reply-1">Bob Example</span>
+                    </div>
                   </div>
+                  <time
+                    data-tid="timestamp"
+                    id="timestamp-reply-1"
+                    aria-label="09 March 2026 15:10"
+                  >Monday 15:10</time>
                 </div>
-                <time
-                  data-tid="timestamp"
-                  id="timestamp-reply-1"
-                  aria-label="09 March 2026 15:10"
-                >Monday 15:10</time>
-              </div>
-              <div data-tid="message-body">
-                <p>Yes! The function calling is much improved. Here's a quick example:</p>
-                <pre><code>const result = await openai.chat({ model: "gpt-5" });</code></pre>
+                <div data-tid="message-body">
+                  <p>Yes! The function calling is much improved. Here's a quick example:</p>
+                  <pre><code>const result = await openai.chat({ model: "gpt-5" });</code></pre>
+                </div>
               </div>
             </div>
           </div>
@@ -242,31 +244,33 @@
               <p>Hey <span itemtype="http://schema.skype.com/Mention" aria-label="Mentioned Alice Example">Alice Example</span>, can you share the benchmark results?</p>
             </div>
             <div data-tid="response-surface" aria-label="1 replies">
-              <div data-tid="reply-message-header">
-                <div>
+              <div role="group">
+                <div data-tid="reply-message-header">
                   <div>
-                    <span id="author-reply-3">Alice Example</span>
+                    <div>
+                      <span id="author-reply-3">Alice Example</span>
+                    </div>
                   </div>
+                  <time
+                    data-tid="timestamp"
+                    id="timestamp-reply-3"
+                    aria-label="10 March 2026 11:45"
+                  >Tuesday 11:45</time>
                 </div>
-                <time
-                  data-tid="timestamp"
-                  id="timestamp-reply-3"
-                  aria-label="10 March 2026 11:45"
-                >Tuesday 11:45</time>
-              </div>
-              <div data-tid="message-body">
-                <p>Sure, here are the results: latency dropped by 40% compared to GPT-4.</p>
-              </div>
-              <div data-tid="channel-message-reaction-summary" class="reaction-strip">
-                <button
-                  type="button"
-                  data-tid="diverse-reaction-pill-button"
-                  title="heart by Dana Example"
-                  aria-labelledby="reaction-reply-3"
-                >
-                  <img alt="❤️" itemtype="http://schema.skype.com/Emoji" />
-                </button>
-                <span id="reaction-reply-3">1 heart reactions.</span>
+                <div data-tid="message-body">
+                  <p>Sure, here are the results: latency dropped by 40% compared to GPT-4.</p>
+                </div>
+                <div data-tid="channel-message-reaction-summary" class="reaction-strip">
+                  <button
+                    type="button"
+                    data-tid="diverse-reaction-pill-button"
+                    title="heart by Dana Example"
+                    aria-labelledby="reaction-reply-3"
+                  >
+                    <img alt="❤️" itemtype="http://schema.skype.com/Emoji" />
+                  </button>
+                  <span id="reaction-reply-3">1 heart reactions.</span>
+                </div>
               </div>
             </div>
           </div>

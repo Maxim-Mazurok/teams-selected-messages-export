@@ -37,57 +37,36 @@ export function pruneClone(root: HTMLElement): HTMLElement {
   return root;
 }
 
-export function isChannelThread(element: HTMLElement): boolean {
+export function isChannelPost(element: HTMLElement): boolean {
   return element.getAttribute("data-tid") === "channel-pane-message";
 }
 
-function buildChannelCompositeContent(threadElement: HTMLElement): HTMLElement {
-  const composite = document.createElement("div");
+export function isChannelReply(element: HTMLElement): boolean {
+  return (
+    element.getAttribute("role") === "group" &&
+    Boolean(element.closest('[data-tid="response-surface"]'))
+  );
+}
 
+function getPostMessageBody(threadElement: HTMLElement): HTMLElement | null {
   const responseSurface = threadElement.querySelector('[data-tid="response-surface"]');
-  const allBodies = Array.from(threadElement.querySelectorAll('[data-tid="message-body"]'));
-  const replyBodies = responseSurface
-    ? Array.from(responseSurface.querySelectorAll('[data-tid="message-body"]'))
-    : [];
-  const replyBodiesSet = new Set(replyBodies);
+  const allBodies = Array.from(
+    threadElement.querySelectorAll<HTMLElement>('[data-tid="message-body"]')
+  );
 
-  const postBody = allBodies.find((body) => !replyBodiesSet.has(body));
-  if (postBody) {
-    composite.appendChild(postBody.cloneNode(true));
+  if (!responseSurface) {
+    return allBodies[0] || null;
   }
 
-  if (responseSurface) {
-    const replyHeaders = Array.from(
-      responseSurface.querySelectorAll('[data-tid="reply-message-header"]')
-    );
-
-    for (let i = 0; i < replyBodies.length; i++) {
-      composite.appendChild(document.createElement("hr"));
-
-      const header = replyHeaders[i];
-      if (header) {
-        const authorSpan = header.querySelector('span[id^="author-"]');
-        const timeElement = header.querySelector('[data-tid="timestamp"], time');
-        const author = normalizeText(authorSpan?.textContent || "");
-        const timeLabel = normalizeText(timeElement?.textContent || "");
-
-        const attribution = document.createElement("p");
-        const strong = document.createElement("strong");
-        strong.textContent = [author, timeLabel].filter(Boolean).join(" | ");
-        attribution.appendChild(strong);
-        composite.appendChild(attribution);
-      }
-
-      composite.appendChild(replyBodies[i].cloneNode(true));
-    }
-  }
-
-  return composite;
+  const replyBodies = new Set(
+    Array.from(responseSurface.querySelectorAll('[data-tid="message-body"]'))
+  );
+  return allBodies.find((body) => !replyBodies.has(body)) || null;
 }
 
 export function getContentSource(element: HTMLElement, strategy: Strategy | null): HTMLElement {
-  if (isChannelThread(element)) {
-    return buildChannelCompositeContent(element);
+  if (isChannelPost(element)) {
+    return getPostMessageBody(element) || element;
   }
 
   return ((strategy?.contentSelector && element.querySelector(strategy.contentSelector)) as HTMLElement) || element;
@@ -190,7 +169,29 @@ export function extractReactionActors(button: Element, labelText: string): strin
 }
 
 export function extractReactions(element: HTMLElement): ReactionInfo[] {
-  return Array.from(element.querySelectorAll('[data-tid="diverse-reaction-pill-button"]'))
+  return extractReactionsFromButtons(
+    Array.from(element.querySelectorAll('[data-tid="diverse-reaction-pill-button"]'))
+  );
+}
+
+export function extractPostReactions(element: HTMLElement): ReactionInfo[] {
+  const responseSurface = element.querySelector('[data-tid="response-surface"]');
+  const allButtons = Array.from(
+    element.querySelectorAll('[data-tid="diverse-reaction-pill-button"]')
+  );
+
+  if (!responseSurface) {
+    return extractReactionsFromButtons(allButtons);
+  }
+
+  const replyButtons = new Set(
+    Array.from(responseSurface.querySelectorAll('[data-tid="diverse-reaction-pill-button"]'))
+  );
+  return extractReactionsFromButtons(allButtons.filter((button) => !replyButtons.has(button)));
+}
+
+function extractReactionsFromButtons(buttons: Element[]): ReactionInfo[] {
+  return buttons
     .map((button) => {
       const labelId = button.getAttribute("aria-labelledby");
       const labelText = normalizeText(

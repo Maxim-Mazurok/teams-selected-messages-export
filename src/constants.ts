@@ -81,7 +81,7 @@ export const STRATEGIES: Strategy[] = [
   },
   {
     name: "teams-channel-pane-message",
-    rowSelector: '[data-tid="channel-pane-message"]',
+    rowSelector: '[data-tid="channel-pane-message"], [data-tid="response-surface"] [role="group"]',
     contentSelector: '[data-tid="message-body"]',
     authorSelector: '[data-tid="post-message-subheader"] span[id^="author-"], [data-tid="reply-message-header"] span[id^="author-"]',
     timeSelector: '[data-tid="timestamp"], time'

@@ -26,6 +26,14 @@ export function isLikelyMessageRow(element: Element): boolean {
     return Boolean(element.querySelector('[data-tid="message-body"]'));
   }
 
+  const isChannelReplyGroup =
+    element.getAttribute("role") === "group" &&
+    Boolean(element.closest('[data-tid="response-surface"]')) &&
+    Boolean(element.querySelector('[data-tid="message-body"]'));
+  if (isChannelReplyGroup) {
+    return true;
+  }
+
   return Boolean(
     element.querySelector('[data-testid="message-wrapper"]') &&
       element.querySelector('[data-tid="chat-pane-message"], [data-message-content]')

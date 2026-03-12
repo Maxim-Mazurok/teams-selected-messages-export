@@ -5,8 +5,10 @@ import {
   extractPlainText,
   extractQuotedReply,
   extractReactions,
+  extractPostReactions,
   extractSubject,
-  getTimeMeta
+  getTimeMeta,
+  isChannelPost
 } from "./content-extraction.js";
 import { elementToMarkdown } from "./markdown-renderer.js";
 import { getMessageId, isLikelyMessageRow } from "./strategy.js";
@@ -37,7 +39,7 @@ export function buildMessageRecord(
     dateTime: timeMeta.dateTime,
     subject: extractSubject(element),
     quote: extractQuotedReply(element),
-    reactions: extractReactions(element),
+    reactions: isChannelPost(element) ? extractPostReactions(element) : extractReactions(element),
     html: extractBodyHtml(element, strategy),
     markdown: elementToMarkdown(element, strategy, plainText),
     plainText

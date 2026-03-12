@@ -22,7 +22,7 @@ async function injectPrototype(page) {
   });
 }
 
-test("channel fixture detects channel threads and exports with reply content", async () => {
+test("channel fixture detects individual posts and replies as separate selectable messages", async () => {
   const executablePath = await findChromeExecutable();
   const browser = await puppeteer.launch({
     executablePath,
@@ -49,7 +49,7 @@ test("channel fixture detects channel threads and exports with reply content", a
     await page.waitForFunction(() => document.querySelector(".tsm-export__dock"));
 
     const messageCount = await page.evaluate(() => window.__teamsMessageExporter.state.messages.length);
-    assert.equal(messageCount, 3, "Should detect 3 channel threads");
+    assert.equal(messageCount, 5, "Should detect 3 posts + 2 replies = 5 individual messages");
 
     const strategyName = await page.evaluate(() => window.__teamsMessageExporter.state.strategy?.name || "");
     assert.equal(strategyName, "teams-channel-pane-message", "Should use channel strategy");
@@ -66,27 +66,25 @@ test("channel fixture detects channel threads and exports with reply content", a
       };
     });
 
-    assert.equal(fullHistoryResult.count, 3, "Should export 3 threads");
+    assert.equal(fullHistoryResult.count, 5, "Should export 5 individual messages");
 
     assert.match(fullHistoryResult.content, /Alice Example/, "Should contain post author Alice");
     assert.match(fullHistoryResult.content, /Charlie Example/, "Should contain post author Charlie");
     assert.match(fullHistoryResult.content, /Dana Example/, "Should contain post author Dana");
+    assert.match(fullHistoryResult.content, /Bob Example/, "Should contain reply author Bob");
 
     assert.match(fullHistoryResult.content, /\*\*AI Discussion Topic\*\*/, "Should contain subject line rendered bold");
 
     assert.match(fullHistoryResult.content, /GPT-5 API/, "Should contain post body text");
-    assert.match(fullHistoryResult.content, /function calling is much improved/, "Should contain reply body text from thread 1");
-
-    assert.match(fullHistoryResult.content, /Bob Example/, "Reply author Bob should appear in content");
-
+    assert.match(fullHistoryResult.content, /function calling is much improved/, "Should contain reply body from Bob");
     assert.match(fullHistoryResult.content, /standup at 10am/, "Should contain Charlie's post body");
 
     assert.match(fullHistoryResult.content, /@Alice Example/, "Should contain mention in Dana's post");
     assert.match(fullHistoryResult.content, /benchmark results/, "Should contain Dana's post body");
     assert.match(fullHistoryResult.content, /latency dropped by 40%/, "Should contain Alice's reply in thread 3");
 
-    assert.match(fullHistoryResult.content, /Reactions:.*👍.*like/, "Should contain like reaction");
-    assert.match(fullHistoryResult.content, /Reactions:.*❤️.*heart/, "Should contain heart reaction");
+    assert.match(fullHistoryResult.content, /Reactions:.*👍.*like/, "Should contain like reaction on post");
+    assert.match(fullHistoryResult.content, /Reactions:.*❤️.*heart/, "Should contain heart reaction on reply");
 
     const fullHistoryHtmlResult = await page.evaluate(async () => {
       const result = await window.__teamsMessageExporter.exportFullHistory("html", {
@@ -100,7 +98,7 @@ test("channel fixture detects channel threads and exports with reply content", a
       };
     });
 
-    assert.equal(fullHistoryHtmlResult.count, 3);
+    assert.equal(fullHistoryHtmlResult.count, 5);
     assert.match(fullHistoryHtmlResult.content, /<!doctype html>/i);
     assert.match(fullHistoryHtmlResult.content, /AI Technologies - Teams export/);
     assert.match(fullHistoryHtmlResult.content, /<h3>AI Discussion Topic<\/h3>/);
@@ -108,15 +106,15 @@ test("channel fixture detects channel threads and exports with reply content", a
     await page.click(".tsm-export__launcher");
     await page.waitForFunction(() => document.body.classList.contains("tsm-export--selection-active"));
 
-    const threadSelectors = await page.evaluate(
+    const selectableMessages = await page.evaluate(
       () => Array.from(document.querySelectorAll('.tsm-export__message[data-tsm-message-id]')).length
     );
-    assert.equal(threadSelectors, 3, "Should have 3 selectable thread elements");
+    assert.equal(selectableMessages, 5, "Should have 5 selectable message elements");
 
     const firstMessageId = await page.evaluate(
       () => document.querySelector('.tsm-export__message[data-tsm-message-id]')?.dataset.tsmMessageId || ""
     );
-    assert.ok(firstMessageId, "First thread should have a message ID");
+    assert.ok(firstMessageId, "First post should have a message ID");
 
     await page.click(`[data-tsm-message-id="${firstMessageId}"]`, { offset: { x: 40, y: 20 } });
     await page.waitForFunction(() => window.__teamsMessageExporter.state.selectedIds.size === 1);
@@ -127,9 +125,9 @@ test("channel fixture detects channel threads and exports with reply content", a
     );
 
     const copiedText = await page.evaluate(() => window.__copiedText || "");
-    assert.match(copiedText, /Alice Example/, "Copied text should contain the thread author");
-    assert.match(copiedText, /GPT-5 API/, "Copied text should contain the post body");
-    assert.match(copiedText, /function calling is much improved/, "Copied text should contain the reply body");
+    assert.match(copiedText, /Alice Example/, "Copied post should contain the post author");
+    assert.match(copiedText, /GPT-5 API/, "Copied post should contain the post body");
+    assert.doesNotMatch(copiedText, /function calling is much improved/, "Copied post should NOT contain reply body (replies are separate)");
   } finally {
     await browser.close();
   }

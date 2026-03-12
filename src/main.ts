@@ -115,6 +115,16 @@ function syncMessageDecorations(message: MessageRecord): void {
   input.checked = state.selectedIds.has(message.id);
 }
 
+function isClickWithinChannelReply(event: MouseEvent, messageElement: HTMLElement): boolean {
+  if (messageElement.getAttribute("data-tid") !== "channel-pane-message") {
+    return false;
+  }
+
+  const target = event.target as HTMLElement;
+  const responseSurface = messageElement.querySelector('[data-tid="response-surface"]');
+  return Boolean(responseSurface?.contains(target));
+}
+
 function handleMessageMouseDown(event: MouseEvent): void {
   if (!state.active) {
     return;
@@ -122,6 +132,10 @@ function handleMessageMouseDown(event: MouseEvent): void {
 
   const messageElement = event.currentTarget as HTMLElement;
   if (isToolbarNode(event.target) || isInteractiveNode(event.target)) {
+    return;
+  }
+
+  if (isClickWithinChannelReply(event, messageElement)) {
     return;
   }
 
@@ -144,6 +158,10 @@ function handleMessageClick(event: MouseEvent): void {
 
   const messageElement = event.currentTarget as HTMLElement;
   if (isToolbarNode(event.target) || isInteractiveNode(event.target)) {
+    return;
+  }
+
+  if (isClickWithinChannelReply(event, messageElement)) {
     return;
   }
 
