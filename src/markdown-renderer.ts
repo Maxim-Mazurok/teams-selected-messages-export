@@ -144,6 +144,18 @@ function nodeToMarkdown(node: Node, context: Record<string, unknown> = {}): stri
   return children;
 }
 
+function mergeConsecutiveMentions(markdown: string): string {
+  // Merge consecutive mentions that appear to be first-name + last-name pairs
+  // Pattern: @FirstName @LastName -> @FirstName LastName
+  // Also handle comma-separated: @FirstName @LastName, -> @FirstName LastName,
+  let result = markdown;
+  // Apply twice to catch multiple mentions in same text (e.g., "@Leo @Shchurov and @Alan @Markus")
+  result = result.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3");
+  result = result.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)$/gm, "@$1 $2");
+  result = result.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3");
+  return result;
+}
+
 export function elementToMarkdown(
   element: HTMLElement,
   strategy: Strategy | null,
@@ -160,7 +172,8 @@ export function elementToMarkdown(
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return markdown || fallbackText;
+  const mergedMarkdown = mergeConsecutiveMentions(markdown);
+  return mergedMarkdown || fallbackText;
 }
 
 export function renderMarkdown(

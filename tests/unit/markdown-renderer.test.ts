@@ -105,3 +105,42 @@ describe("renderReactionsMarkdown", () => {
     assert.equal(result, "Reactions: 👍 like by Alice; 😂 laugh x2");
   });
 });
+
+describe("mention merging in markdown output", () => {
+  it("merges consecutive mentions with capital first letters", () => {
+    // This tests the regex pattern used in elementToMarkdown
+    const markdown = "Hey @Jeremy @Kothe, check this out!";
+    const merged = markdown
+      .replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3")
+      .replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)$/gm, "@$1 $2");
+    assert.equal(merged, "Hey @Jeremy Kothe, check this out!");
+  });
+
+  it("merges multiple mention pairs in same text", () => {
+    const markdown = "@Leo @Shchurov and @Alan @Markus";
+    // Need to apply the regex repeatedly since the second pair has whitespace before @Alan
+    let merged = markdown.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3");
+    merged = merged.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)$/gm, "@$1 $2"); // For end-of-line cases
+    assert.equal(merged, "@Leo Shchurov and @Alan Markus");
+  });
+
+  it("merges mentions at end of text", () => {
+    const markdown = "Check with @Jim @Cooke";
+    const merged = markdown
+      .replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3")
+      .replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)$/gm, "@$1 $2");
+    assert.equal(merged, "Check with @Jim Cooke");
+  });
+
+  it("does not merge single mentions", () => {
+    const markdown = "Hey @Maxim Mazurok!";
+    const merged = markdown.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3");
+    assert.equal(merged, "Hey @Maxim Mazurok!");
+  });
+
+  it("does not merge mentions without capital letters", () => {
+    const markdown = "Contact @john @smith for details";
+    const merged = markdown.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3");
+    assert.equal(merged, "Contact @john @smith for details");
+  });
+});

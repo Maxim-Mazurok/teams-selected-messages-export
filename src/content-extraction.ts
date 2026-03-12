@@ -2,12 +2,39 @@ import type { Strategy, QuotedReply, ReactionInfo, TimeMeta } from "./types.js";
 import { CONTENT_PRUNE_SELECTOR } from "./constants.js";
 import { normalizeText, isMentionElement } from "./utilities.js";
 
-export function formatMentionLabel(element: Element): string {
+function getFullMentionName(element: Element): string {
+  // First, check if this mention is part of a wrapper (like <a> or <span>) that contains the full name
+  const mentionWrapper = element.closest("a, [data-mention-container]");
+  if (mentionWrapper && mentionWrapper !== element) {
+    const wrapperLabel = mentionWrapper.getAttribute("aria-label") || "";
+    if (wrapperLabel.startsWith("Mentioned ")) {
+      const wrappedName = wrapperLabel.replace(/^Mentioned\s+/, "");
+      if (wrappedName) {
+        return wrappedName;
+      }
+    }
+
+    // Try to extract full name from multiple mentions within the wrapper
+    const mentions = Array.from(mentionWrapper.querySelectorAll('[itemtype="http://schema.skype.com/Mention"]'));
+    if (mentions.length > 1) {
+      const parts = mentions.map((mention) => normalizeText(mention.textContent || ""));
+      const combinedName = parts.join(" ");
+      if (combinedName && !combinedName.includes("[")) {
+        return combinedName;
+      }
+    }
+  }
+
+  // Fall back to the mention element itself
   const ariaLabel = element.getAttribute("aria-label") || "";
   const explicitName = ariaLabel.startsWith("Mentioned ") ? ariaLabel.replace(/^Mentioned\s+/, "") : "";
   const text = normalizeText(element.textContent || "");
-  const name = explicitName || text;
-  return name ? `@${name}` : text;
+  return explicitName || text;
+}
+
+export function formatMentionLabel(element: Element): string {
+  const name = getFullMentionName(element);
+  return name ? `@${name}` : "";
 }
 
 export function isEmojiImage(image: Element): boolean {
