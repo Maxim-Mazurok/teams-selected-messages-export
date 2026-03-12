@@ -46,6 +46,7 @@ describe("orderMessagesForExport", () => {
       author: "Test",
       timeLabel: "",
       dateTime: "",
+      subject: "",
       quote: null,
       reactions: [],
       html: "",

@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Channel | AI Technologies | Microsoft Teams</title>
+    <style>
+      body {
+        margin: 0;
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #111827;
+        color: #f8fafc;
+      }
+
+      [data-tid="title-bar"] {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 48px;
+        padding: 0 14px;
+        background: #0b1220;
+      }
+
+      [data-tid="titlebar-end-slot"] {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      #titlebar-end-slot-start {
+        display: flex;
+        align-items: center;
+      }
+
+      .native-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .native-controls button {
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: #1f2937;
+        color: inherit;
+      }
+
+      main {
+        max-width: 840px;
+        margin: 0 auto;
+        padding: 24px 32px 40px;
+      }
+
+      [data-tid="channelTitle-text"] {
+        margin-bottom: 20px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      [data-tid="channel-pane-runway"] {
+        display: grid;
+        gap: 14px;
+      }
+
+      [data-tid="channel-pane-message"] {
+        position: relative;
+        padding: 16px 18px 16px 28px;
+        border-radius: 18px;
+        background: #1f2937;
+      }
+
+      [data-tid="subject-line"] h2 {
+        margin: 0 0 8px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      [data-tid="post-message-subheader"],
+      [data-tid="reply-message-header"] {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      [data-tid="post-message-subheader"] span[id^="author-"],
+      [data-tid="reply-message-header"] span[id^="author-"] {
+        font-weight: 700;
+      }
+
+      time {
+        display: inline-block;
+        color: #cbd5e1;
+      }
+
+      [data-tid="message-body"] p {
+        margin: 0 0 8px;
+      }
+
+      .reaction-strip {
+        margin-top: 10px;
+      }
+
+      .reaction-strip button {
+        border: 0;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        padding: 6px 10px;
+      }
+
+      .reaction-strip span {
+        position: absolute;
+        left: -9999px;
+      }
+
+      [data-tid="response-surface"] {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div data-tid="title-bar">
+      <div>Fixture Teams</div>
+      <div data-tid="titlebar-end-slot">
+        <div id="titlebar-end-slot-start"></div>
+        <div class="native-controls">
+          <button type="button" data-tid="more-options-header" aria-label="Settings and more">...</button>
+          <button type="button" data-tid="me-control-avatar-trigger" aria-label="Your profile">MM</button>
+        </div>
+      </div>
+    </div>
+    <main>
+      <div data-tid="channelTitle-text">AI Technologies</div>
+      <div data-tid="channel-pane-runway">
+        <!-- Thread 1: Post with subject + 1 reply + reaction on post -->
+        <li role="none" style="list-style: none">
+          <div
+            role="group"
+            data-tid="channel-pane-message"
+            id="reply-chain-summary-1741700520000"
+          >
+            <div data-tid="subject-line">
+              <h2>AI Discussion Topic</h2>
+            </div>
+            <div data-tid="post-message-subheader">
+              <div>
+                <div>
+                  <span id="author-post-1">Alice Example</span>
+                </div>
+              </div>
+              <time
+                data-tid="timestamp"
+                id="timestamp-post-1"
+                aria-label="09 March 2026 14:42"
+              >Monday 14:42</time>
+            </div>
+            <div data-tid="message-body">
+              <p>Has anyone tried the new GPT-5 API? I'd love to hear about your experiences.</p>
+            </div>
+            <div data-tid="channel-message-reaction-summary" class="reaction-strip">
+              <button
+                type="button"
+                data-tid="diverse-reaction-pill-button"
+                title="like by Bob Example"
+                aria-labelledby="reaction-post-1"
+              >
+                <img alt="👍" itemtype="http://schema.skype.com/Emoji" />
+              </button>
+              <span id="reaction-post-1">1 like reactions.</span>
+            </div>
+            <div data-tid="response-surface" aria-label="1 replies">
+              <div data-tid="reply-message-header">
+                <div>
+                  <div>
+                    <span id="author-reply-1">Bob Example</span>
+                  </div>
+                </div>
+                <time
+                  data-tid="timestamp"
+                  id="timestamp-reply-1"
+                  aria-label="09 March 2026 15:10"
+                >Monday 15:10</time>
+              </div>
+              <div data-tid="message-body">
+                <p>Yes! The function calling is much improved. Here's a quick example:</p>
+                <pre><code>const result = await openai.chat({ model: "gpt-5" });</code></pre>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <!-- Thread 2: Post without subject, no replies -->
+        <li role="none" style="list-style: none">
+          <div
+            role="group"
+            data-tid="channel-pane-message"
+            id="reply-chain-summary-1741700580000"
+          >
+            <div data-tid="post-message-subheader">
+              <div>
+                <div>
+                  <span id="author-post-2">Charlie Example</span>
+                </div>
+              </div>
+              <time
+                data-tid="timestamp"
+                id="timestamp-post-2"
+                aria-label="10 March 2026 09:30"
+              >Tuesday 09:30</time>
+            </div>
+            <div data-tid="message-body">
+              <p>Reminder: AI team standup at 10am today.</p>
+            </div>
+          </div>
+        </li>
+
+        <!-- Thread 3: Post with mention, reply with reaction -->
+        <li role="none" style="list-style: none">
+          <div
+            role="group"
+            data-tid="channel-pane-message"
+            id="reply-chain-summary-1741700640000"
+          >
+            <div data-tid="post-message-subheader">
+              <div>
+                <div>
+                  <span id="author-post-3">Dana Example</span>
+                </div>
+              </div>
+              <time
+                data-tid="timestamp"
+                id="timestamp-post-3"
+                aria-label="10 March 2026 11:15"
+              >Tuesday 11:15</time>
+            </div>
+            <div data-tid="message-body">
+              <p>Hey <span itemtype="http://schema.skype.com/Mention" aria-label="Mentioned Alice Example">Alice Example</span>, can you share the benchmark results?</p>
+            </div>
+            <div data-tid="response-surface" aria-label="1 replies">
+              <div data-tid="reply-message-header">
+                <div>
+                  <div>
+                    <span id="author-reply-3">Alice Example</span>
+                  </div>
+                </div>
+                <time
+                  data-tid="timestamp"
+                  id="timestamp-reply-3"
+                  aria-label="10 March 2026 11:45"
+                >Tuesday 11:45</time>
+              </div>
+              <div data-tid="message-body">
+                <p>Sure, here are the results: latency dropped by 40% compared to GPT-4.</p>
+              </div>
+              <div data-tid="channel-message-reaction-summary" class="reaction-strip">
+                <button
+                  type="button"
+                  data-tid="diverse-reaction-pill-button"
+                  title="heart by Dana Example"
+                  aria-labelledby="reaction-reply-3"
+                >
+                  <img alt="❤️" itemtype="http://schema.skype.com/Emoji" />
+                </button>
+                <span id="reaction-reply-3">1 heart reactions.</span>
+              </div>
+            </div>
+          </div>
+        </li>
+      </div>
+    </main>
+  </body>
+</html>

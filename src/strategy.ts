@@ -21,6 +21,11 @@ export function isLikelyMessageRow(element: Element): boolean {
     return false;
   }
 
+  const isChannelPost = element.getAttribute("data-tid") === "channel-pane-message";
+  if (isChannelPost) {
+    return Boolean(element.querySelector('[data-tid="message-body"]'));
+  }
+
   return Boolean(
     element.querySelector('[data-testid="message-wrapper"]') &&
       element.querySelector('[data-tid="chat-pane-message"], [data-message-content]')

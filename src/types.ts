@@ -31,6 +31,7 @@ export interface MessageRecord {
   author: string;
   timeLabel: string;
   dateTime: string;
+  subject: string;
   quote: QuotedReply | null;
   reactions: ReactionInfo[];
   html: string;
@@ -44,6 +45,7 @@ export interface MessageSnapshot {
   author: string;
   timeLabel: string;
   dateTime: string;
+  subject: string;
   quote: QuotedReply | null;
   reactions: ReactionInfo[];
   html: string;

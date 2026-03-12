@@ -5,6 +5,7 @@ import {
   extractPlainText,
   extractQuotedReply,
   extractReactions,
+  extractSubject,
   getTimeMeta
 } from "./content-extraction.js";
 import { elementToMarkdown } from "./markdown-renderer.js";
@@ -34,6 +35,7 @@ export function buildMessageRecord(
     author,
     timeLabel: timeMeta.label,
     dateTime: timeMeta.dateTime,
+    subject: extractSubject(element),
     quote: extractQuotedReply(element),
     reactions: extractReactions(element),
     html: extractBodyHtml(element, strategy),

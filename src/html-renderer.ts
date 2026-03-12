@@ -52,13 +52,14 @@ export function renderHtmlDocument(
       const safeTime = escapeHtml(message.timeLabel || message.dateTime || "");
       const quoteHtml = renderQuotedReplyHtml(message.quote);
       const reactionsHtml = renderReactionsHtml(message.reactions);
+      const subjectHtml = message.subject ? `<h3>${escapeHtml(message.subject)}</h3>` : "";
       return `
           <article class="message">
             <header>
               <strong>${safeAuthor}</strong>
               <time datetime="${escapeHtml(message.dateTime || "")}">${safeTime}</time>
             </header>
-            <section class="body">${quoteHtml}${message.html || `<p>${escapeHtml(message.plainText)}</p>`}${reactionsHtml}</section>
+            <section class="body">${subjectHtml}${quoteHtml}${message.html || `<p>${escapeHtml(message.plainText)}</p>`}${reactionsHtml}</section>
           </article>
         `;
     })

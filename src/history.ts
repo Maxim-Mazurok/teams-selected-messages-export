@@ -207,6 +207,42 @@ function collectVisibleMessagesIntoMap(
   return { visibleMessages, nextCaptureOrder: captureOrder };
 }
 
+async function expandCollapsedReplies(): Promise<void> {
+  if (document.querySelector('[data-tid="channel-pane-runway"]')) {
+    return;
+  }
+
+  const expandButtons = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-tid="response-summary-button"]')
+  ).filter((button) => isElementVisible(button));
+
+  if (!expandButtons.length) {
+    return;
+  }
+
+  for (const button of expandButtons) {
+    button.click();
+  }
+
+  const maxWaitMs = 5_000;
+  const pollIntervalMs = 200;
+  const startedAt = performance.now();
+
+  while (performance.now() - startedAt < maxWaitMs) {
+    await waitForDelay(pollIntervalMs);
+
+    const remainingButtons = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-tid="response-summary-button"]')
+    ).filter((button) => isElementVisible(button));
+
+    if (!remainingButtons.length) {
+      break;
+    }
+  }
+
+  await waitForDelay(HISTORY_SETTLE_MS);
+}
+
 export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
   const strategy = state.strategy || selectStrategy().strategy;
   if (!strategy) {
@@ -223,6 +259,8 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
   let previousSignature = "";
 
   try {
+    await expandCollapsedReplies();
+
     for (let pass = 0; pass < HISTORY_MAX_PASSES; pass += 1) {
       const beforeCollect = collectVisibleMessagesIntoMap(
         strategy,
@@ -245,6 +283,7 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
       );
       scrollContainer.scrollTop = Math.max(0, beforeTop - scrollStep);
       await waitForHistoryToSettle(strategy, scrollContainer);
+      await expandCollapsedReplies();
 
       const afterCollect = collectVisibleMessagesIntoMap(
         strategy,

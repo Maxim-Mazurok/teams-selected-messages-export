@@ -4,6 +4,7 @@ export function getConversationTitle(): string {
   const candidates = [
     '[data-tid="chat-title"]',
     '[data-tid="chat-header-title"]',
+    '[data-tid="channelTitle-text"]',
     '[data-tid="thread-header-title"]',
     "main h1",
     '[role="main"] h1',

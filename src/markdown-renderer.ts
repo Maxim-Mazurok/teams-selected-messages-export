@@ -88,6 +88,10 @@ function nodeToMarkdown(node: Node, context: Record<string, unknown> = {}): stri
     return "  \n";
   }
 
+  if (tag === "hr") {
+    return "\n---\n";
+  }
+
   if (tag === "strong" || tag === "b") {
     return `**${children.trim()}**`;
   }
@@ -186,6 +190,10 @@ export function renderMarkdown(
 
     lines.push(`## ${headingBits.join(" | ")}`);
     lines.push("");
+    if (message.subject) {
+      lines.push(`**${message.subject}**`);
+      lines.push("");
+    }
     if (message.quote?.text) {
       lines.push(renderQuotedReplyMarkdown(message.quote));
       lines.push("");

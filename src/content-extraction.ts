@@ -37,7 +37,59 @@ export function pruneClone(root: HTMLElement): HTMLElement {
   return root;
 }
 
+export function isChannelThread(element: HTMLElement): boolean {
+  return element.getAttribute("data-tid") === "channel-pane-message";
+}
+
+function buildChannelCompositeContent(threadElement: HTMLElement): HTMLElement {
+  const composite = document.createElement("div");
+
+  const responseSurface = threadElement.querySelector('[data-tid="response-surface"]');
+  const allBodies = Array.from(threadElement.querySelectorAll('[data-tid="message-body"]'));
+  const replyBodies = responseSurface
+    ? Array.from(responseSurface.querySelectorAll('[data-tid="message-body"]'))
+    : [];
+  const replyBodiesSet = new Set(replyBodies);
+
+  const postBody = allBodies.find((body) => !replyBodiesSet.has(body));
+  if (postBody) {
+    composite.appendChild(postBody.cloneNode(true));
+  }
+
+  if (responseSurface) {
+    const replyHeaders = Array.from(
+      responseSurface.querySelectorAll('[data-tid="reply-message-header"]')
+    );
+
+    for (let i = 0; i < replyBodies.length; i++) {
+      composite.appendChild(document.createElement("hr"));
+
+      const header = replyHeaders[i];
+      if (header) {
+        const authorSpan = header.querySelector('span[id^="author-"]');
+        const timeElement = header.querySelector('[data-tid="timestamp"], time');
+        const author = normalizeText(authorSpan?.textContent || "");
+        const timeLabel = normalizeText(timeElement?.textContent || "");
+
+        const attribution = document.createElement("p");
+        const strong = document.createElement("strong");
+        strong.textContent = [author, timeLabel].filter(Boolean).join(" | ");
+        attribution.appendChild(strong);
+        composite.appendChild(attribution);
+      }
+
+      composite.appendChild(replyBodies[i].cloneNode(true));
+    }
+  }
+
+  return composite;
+}
+
 export function getContentSource(element: HTMLElement, strategy: Strategy | null): HTMLElement {
+  if (isChannelThread(element)) {
+    return buildChannelCompositeContent(element);
+  }
+
   return ((strategy?.contentSelector && element.querySelector(strategy.contentSelector)) as HTMLElement) || element;
 }
 
@@ -159,6 +211,25 @@ export function extractReactions(element: HTMLElement): ReactionInfo[] {
     .filter((reaction): reaction is ReactionInfo => reaction !== null);
 }
 
+export function parseChannelTimeAriaLabel(ariaLabel: string): string {
+  const cleaned = ariaLabel.trim();
+  if (!cleaned) {
+    return "";
+  }
+
+  const parsed = Date.parse(cleaned);
+  if (Number.isFinite(parsed)) {
+    return new Date(parsed).toISOString();
+  }
+
+  return "";
+}
+
+export function extractSubject(element: HTMLElement): string {
+  const subjectElement = element.querySelector('[data-tid="subject-line"]');
+  return normalizeText(subjectElement?.textContent || "");
+}
+
 export function getTimeMeta(element: HTMLElement, strategy: Strategy | null): TimeMeta {
   const timeElement = strategy?.timeSelector
     ? element.querySelector(strategy.timeSelector)
@@ -168,8 +239,18 @@ export function getTimeMeta(element: HTMLElement, strategy: Strategy | null): Ti
     return { label: "", dateTime: "" };
   }
 
+  const label = normalizeText(timeElement.textContent || "");
+  const explicitDatetime = timeElement.getAttribute("datetime") || (timeElement as HTMLTimeElement).dateTime || "";
+
+  if (explicitDatetime) {
+    return { label, dateTime: explicitDatetime };
+  }
+
+  const ariaLabel = timeElement.getAttribute("aria-label") || "";
+  const parsedDatetime = parseChannelTimeAriaLabel(ariaLabel);
+
   return {
-    label: normalizeText(timeElement.textContent || ""),
-    dateTime: timeElement.getAttribute("datetime") || (timeElement as HTMLTimeElement).dateTime || ""
+    label: label || normalizeText(ariaLabel),
+    dateTime: parsedDatetime
   };
 }
