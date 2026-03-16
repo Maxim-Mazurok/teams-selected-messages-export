@@ -6,6 +6,35 @@ export interface Strategy {
   timeSelector: string;
 }
 
+export interface WorkerCapturedEmotionEntry {
+  key: string | null;
+  userIds: string[];
+}
+
+export interface WorkerCapturedEmotionSummaryEntry {
+  key: string | null;
+  count: number | null;
+}
+
+/** A chat message captured from the worker intercept bridge. */
+export interface WorkerCapturedMessage {
+  id: string;
+  clientMessageId: string | null;
+  originalArrivalTime: string | null;
+  author: string | null;
+  authorId: string | null;
+  messageType: string | null;
+  content: string | null;
+  subject: string | null;
+  threadType: string | null;
+  isDeleted: boolean;
+  editedTime: string | null;
+  emotionsSummary: WorkerCapturedEmotionSummaryEntry[] | null;
+  emotions: WorkerCapturedEmotionEntry[] | null;
+  diverseEmotions: WorkerCapturedEmotionEntry[] | null;
+  quotedMessages: unknown | null;
+}
+
 export interface TimeMeta {
   label: string;
   dateTime: string;

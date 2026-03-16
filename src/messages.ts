@@ -1,4 +1,4 @@
-import type { Strategy, MessageRecord, MessageSnapshot } from "./types.js";
+import type { Strategy, MessageRecord, MessageSnapshot, ReactionInfo } from "./types.js";
 import { normalizeText, queryText } from "./utilities.js";
 import {
   extractBodyHtml,
@@ -13,6 +13,44 @@ import {
 import { elementToMarkdown } from "./markdown-renderer.js";
 import { getMessageId, isLikelyMessageRow } from "./strategy.js";
 import { log } from "./state.js";
+import { getWorkerMessage, resolveUserId } from "./worker-store.js";
+
+/**
+ * Enrich DOM-extracted reactions with actor names resolved from worker data.
+ *
+ * The DOM reaction pill buttons expose reaction counts and emoji but typically
+ * do not expose the full list of actors for each reaction.  The worker
+ * interception bridge captures structured emotion objects that include every
+ * reactor's user-ID; those IDs are resolved to display names using the member
+ * map accumulated from author fields seen in worker responses.
+ *
+ * Matching strategy: the DOM reaction name (e.g. "like") is compared
+ * case-insensitively against the worker emotion key ("like").  Teams keeps
+ * these consistent so no emoji ↔ key lookup table is needed.
+ */
+function enrichReactionsFromWorker(messageId: string, reactions: ReactionInfo[]): ReactionInfo[] {
+  const workerMessage = getWorkerMessage(messageId);
+  if (!workerMessage) return reactions;
+
+  const allEmotions = [...(workerMessage.emotions ?? []), ...(workerMessage.diverseEmotions ?? [])];
+  if (allEmotions.length === 0) return reactions;
+
+  return reactions.map((reaction) => {
+    const normalizedName = reaction.name.toLowerCase().trim();
+    const matchingEmotion = allEmotions.find(
+      (emotion) => (emotion.key?.toLowerCase() ?? "") === normalizedName
+    );
+
+    if (!matchingEmotion || matchingEmotion.userIds.length === 0) return reaction;
+
+    const resolvedActors = matchingEmotion.userIds
+      .map((userId) => resolveUserId(userId))
+      .filter((name): name is string => Boolean(name));
+
+    // Fall back to DOM-extracted actors if we can't resolve the user IDs yet
+    return resolvedActors.length > 0 ? { ...reaction, actors: resolvedActors } : reaction;
+  });
+}
 
 export function buildMessageRecord(
   element: HTMLElement,
@@ -30,8 +68,11 @@ export function buildMessageRecord(
     queryText(element, '[aria-label*="sent by" i], [aria-label*="posted by" i]') ||
     "Unknown author";
 
+  const messageId = getMessageId(element, index);
+  const domReactions = isChannelPost(element) ? extractPostReactions(element) : extractReactions(element);
+
   return {
-    id: getMessageId(element, index),
+    id: messageId,
     index,
     element,
     author,
@@ -39,7 +80,7 @@ export function buildMessageRecord(
     dateTime: timeMeta.dateTime,
     subject: extractSubject(element),
     quote: extractQuotedReply(element),
-    reactions: isChannelPost(element) ? extractPostReactions(element) : extractReactions(element),
+    reactions: enrichReactionsFromWorker(messageId, domReactions),
     html: extractBodyHtml(element, strategy),
     markdown: elementToMarkdown(element, strategy, plainText),
     plainText

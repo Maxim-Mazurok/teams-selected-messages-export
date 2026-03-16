@@ -38,6 +38,7 @@ import {
   clearStartupTimers,
   destroy
 } from "./lifecycle.js";
+import { initWorkerStore, getWorkerStats, isWorkerHookInstalled } from "./worker-store.js";
 
 /* ------------------------------------------------------------------ */
 /*  Orchestration functions                                           */
@@ -436,6 +437,8 @@ function registerApi(): void {
       }),
     getSelectedMessages: () =>
       getSelectedMessages().map(snapshotMessageRecord),
+    getWorkerStats,
+    isWorkerHookInstalled,
     destroy: () => destroy(handleMessageMouseDown, handleMessageClick)
   };
 }
@@ -511,6 +514,10 @@ if (
 ) {
   (windowRecord[INSTANCE_KEY] as { destroy(): void }).destroy();
 }
+
+// Start listening for worker bridge events immediately so we don't miss any
+// messages that arrive before the DOM is fully ready.
+initWorkerStore();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", start, { once: true });

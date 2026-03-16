@@ -34,6 +34,17 @@
         "https://teams.cloud.microsoft/*"
       ],
       "js": [
+        "worker-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://teams.microsoft.com/*",
+        "https://teams.cloud.microsoft/*"
+      ],
+      "js": [
         "content-script.js"
       ],
       "run_at": "document_idle"

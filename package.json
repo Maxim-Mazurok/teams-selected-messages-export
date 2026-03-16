@@ -16,7 +16,8 @@
     "test:integration": "node --test ./tests/integration/*.test.mjs",
     "test:unit": "node --import tsx --test ./tests/unit/*.test.ts && node --test ./tests/unit/*.test.mjs",
     "validate:extension": "node ./scripts/validate-installed-extension.mjs",
-    "validate:live": "node ./scripts/validate-live-prototype.mjs"
+    "validate:live": "node ./scripts/validate-live-prototype.mjs",
+    "validate:worker-poc": "node ./scripts/validate-worker-poc.mjs"
   },
   "dependencies": {
     "puppeteer-core": "^24.39.0"

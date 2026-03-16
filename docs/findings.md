@@ -77,6 +77,19 @@ This file captures live DOM notes, validation status, and extension-packaging co
 - The latest reproducible probe run wrote `artifacts/worker-intercept-probe.json` and observed `worker-create: 3`, `worker-request: 57`, `worker-response: 47`, with `fetch: 0`, `xhr: 0`, and `ws: 0`.
 - The current extension manifest injects the UI content script at `document_idle`, which is too late for constructor patching. A worker-based implementation will need a separate `document_start` main-world hook plus a bridge back to the existing extension UI.
 - The experimental probe is saved in the repo at `scripts/probe-worker-intercepts.mjs`, and the latest run writes `artifacts/worker-intercept-probe.json`.
+- The experimental probe is saved in the repo at `scripts/probe-worker-intercepts.mjs`, and the latest run writes `artifacts/worker-intercept-probe.json`.
+- A worker-intercept POC was built and validated on Monday, March 16, 2026 on the `feature/worker-intercept-poc` branch. All pipeline stages passed:
+  - `extension-src/worker-hook.js` runs at `document_start` in `world: "MAIN"` (Chrome MV3 content script, no CDP needed).
+  - `window.Worker` is patched before Teams creates its precompiled worker; `window.Worker.name` becomes `"WorkerWrapper"` confirming the patch is in place.
+  - Worker response messages are intercepted, stripped to a safe summary, and forwarded to the isolated content script via `window.postMessage({ source: "teams-export-worker-hook", ... }, "*")`.
+  - The isolated-world `worker-store.ts` listens for bridge events on `window.addEventListener("message", ...)` and stores messages in a `Map<messageId, WorkerCapturedMessage>`.
+  - In the validated run: 6 bridge events were received in the MAIN world; 40 structured chat messages were stored in the isolated-world worker store; 9 unique member identities were accumulated from `fromUser.displayName` fields in the responses.
+  - The reaction-enrichment path in `messages.ts` now calls `enrichReactionsFromWorker(messageId, domReactions)` which looks up the worker store by message ID, matches reaction keys by normalised name (e.g. DOM `"like"` ↔ worker key `"like"`), and replaces the `actors` array with resolved display names when available.
+  - Message ID normalisation handles the `content-<id>` and `timestamp-<id>` DOM prefixes that Teams uses on child elements, so the join between DOM message IDs and worker message IDs is stable.
+  - The `open -na "Google Chrome"` launcher script reuses an existing Chrome process and ignores extra flags; the extension must be loaded separately via `scripts/load-unpacked-extension.mjs` or by launching Chrome directly with its binary using `--load-extension`.
+  - Chrome MV3 content script `world: "MAIN"` injection requires Chrome 111 or later; confirmed working on Chrome 145.
+  - Properties set on `window` by content scripts (ISOLATED world) are NOT visible to the page's main world. Use DOM attributes (e.g. `document.documentElement.dataset.*`) or `window.postMessage` for cross-world communication. The extension public API (`window.__teamsMessageExporter`) is therefore not accessible from puppeteer `page.evaluate()`.
+  - The worker hook POC validation is stored at `artifacts/worker-poc-validation.json` and is reproducible with `npm run validate:worker-poc`.
 
 ## Caveats
 
@@ -89,12 +102,13 @@ This file captures live DOM notes, validation status, and extension-packaging co
 
 ## Worker Hook Next Steps
 
-1. Add a dedicated `document_start` main-world hook script to the extension. Keep it separate from the current UI content script so constructor patching happens before Teams creates its precompiled worker.
-2. Patch `window.Worker` first, and keep `fetch` / `XMLHttpRequest` wrappers only as a low-value fallback. The current probe shows the useful message payloads arrive through worker messaging, not the main-thread network primitives.
-3. Bridge only summarized payloads back to the extension UI layer with `window.postMessage` or a custom DOM event. Do not forward raw worker traffic blindly; keep the bridge small and predictable.
-4. Build an ID map from worker responses such as `me`, `chat`, and member-related queries so `emotions[].users[].userId` can be resolved to display names without CDP.
-5. Join worker-derived message data to DOM-selected rows by stable identifiers such as `message.id`, `clientMessageId`, `originalArrivalTime`, and author where needed. Keep the DOM export path as fallback until this mapping is proven stable.
-6. Extend validation with mixed-source checks once the worker hook exists: DOM-selected message set, worker-enriched reactions, reply handling, and cached-thread behavior.
+1. ~~Add a dedicated `document_start` main-world hook script to the extension.~~ **Done** (`extension-src/worker-hook.js`, `world: "MAIN"`).
+2. ~~Patch `window.Worker` first.~~ **Done** — Worker constructor is patched; confirmed with `window.Worker.name === "WorkerWrapper"`.
+3. ~~Bridge only summarized payloads back to the extension UI layer with `window.postMessage`.~~ **Done** (`worker-store.ts` listens and stores messages end-to-end).
+4. Build a more complete ID map from worker responses. The current member map is populated only from message `fromUser` fields. Capturing explicit member-list responses (e.g. `ComponentsChatQueriesChatQuery`) and the `singleMe` identity would fill remaining gaps in reaction actor resolution.
+5. Join worker-derived `content` fields to exports so the HTML export uses raw worker HTML instead of DOM-scraped HTML, which would be more reliable against DOM virtualization.
+6. Extend validation with mixed-source checks: DOM-selected messages combined with worker-enriched reactions; test with reactions that have more than one actor to confirm display-name resolution; test against channel threads in addition to DM and group chats.
+7. Consider making the worker store the primary source for full-chat export history instead of the current DOM-scroll approach, since the worker data is already cached from indexedDB and does not require virtualization-safe scrolling.
 
 ## Expected follow-up
 
