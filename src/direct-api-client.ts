@@ -372,3 +372,176 @@ function parseApiMessage(raw: Record<string, unknown>): TeamsApiMessage {
     quotedMessageId,
   };
 }
+
+/**
+ * Send a message to a conversation.
+ * Returns the server-assigned message ID.
+ */
+export async function sendMessage(
+  token: TeamsAuthToken,
+  conversationId: string,
+  messageContent: string,
+  senderDisplayName: string,
+): Promise<string> {
+  const url = `${CHAT_SERVICE_BASE(token.region)}/users/ME/conversations/${encodeURIComponent(conversationId)}/messages`;
+
+  const clientMessageId = String(Date.now());
+
+  const body = {
+    content: messageContent,
+    messagetype: "Text",
+    contenttype: "text",
+    clientmessageid: clientMessageId,
+    imdisplayname: senderDisplayName,
+    properties: {
+      importance: "",
+      subject: null,
+    },
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to send message: ${response.status} ${response.statusText} — ${errorText}`,
+    );
+  }
+
+  const data = (await response.json()) as { OriginalArrivalTime: number; id?: string };
+  return data.id ?? clientMessageId;
+}
+
+/**
+ * Find an existing 1:1 conversation with a specific user by scanning
+ * recent messages for display names.
+ *
+ * The members API doesn't return display names for 1:1 chats, so instead
+ * we fetch a few recent messages from each untitled chat and match against
+ * the sender display names (imdisplayname).
+ *
+ * Also handles the self-chat case (48:notes) when the target matches
+ * the logged-in user.
+ *
+ * Only searches 1:1 chats — use the chatFilter in the CLI script for
+ * matching group chats and meetings by topic.
+ */
+export async function findOneOnOneConversation(
+  token: TeamsAuthToken,
+  targetIdentifier: string,
+): Promise<{ conversationId: string; memberDisplayName: string } | null> {
+  const conversations = await fetchConversations(token, 100);
+
+  const targetLower = targetIdentifier.toLowerCase();
+
+  // Check self-chat first — matches when the user searches for their own name
+  const selfChat = conversations.find((conversation) =>
+    conversation.id.startsWith("48:notes"),
+  );
+  if (selfChat) {
+    const currentUserName = await fetchCurrentUserDisplayName(token);
+    if (currentUserName.toLowerCase().includes(targetLower)) {
+      return { conversationId: selfChat.id, memberDisplayName: `${currentUserName} (self)` };
+    }
+  }
+
+  // Search untitled 1:1 chats by scanning recent messages for sender names
+  const untitledChats = conversations.filter(
+    (conversation) =>
+      conversation.threadType === "chat" && !conversation.topic,
+  );
+
+  for (const chat of untitledChats) {
+    try {
+      const messagesPage = await fetchMessages(token, chat.id, 10);
+      const textMessages = messagesPage.messages.filter(
+        (message) =>
+          message.messageType === "RichText/Html" ||
+          message.messageType === "Text",
+      );
+
+      // Collect unique sender names
+      const senderNames = [
+        ...new Set(
+          textMessages
+            .map((message) => message.displayName)
+            .filter((name) => name.length > 0),
+        ),
+      ];
+
+      // Check if any sender matches the target
+      for (const senderName of senderNames) {
+        if (senderName.toLowerCase().includes(targetLower)) {
+          return { conversationId: chat.id, memberDisplayName: senderName };
+        }
+      }
+    } catch {
+      // Some older chats may not be fetchable
+      continue;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get the display name of the current user from their own message history.
+ *
+ * Fetches recent messages from a conversation and identifies the current
+ * user's display name by finding the most common sender (likely "me").
+ */
+export async function fetchCurrentUserDisplayName(
+  token: TeamsAuthToken,
+): Promise<string> {
+  // The ME/properties endpoint has user settings but not always displayname.
+  // The most reliable approach is to look at our own sent messages.
+  const conversations = await fetchConversations(token, 10);
+
+  for (const conversation of conversations) {
+    try {
+      const messagesPage = await fetchMessages(token, conversation.id, 10);
+      const textMessages = messagesPage.messages.filter(
+        (message) =>
+          (message.messageType === "RichText/Html" ||
+            message.messageType === "Text") &&
+          message.displayName.length > 0,
+      );
+
+      if (textMessages.length === 0) continue;
+
+      // Count sender occurrences — the current user likely appears most often
+      // across multiple conversations. But for a single conversation, just
+      // return the first sender name we find (we'll validate it's "us" later).
+      // For now, use a heuristic: check the self-chat (48:notes) messages
+      if (conversation.id.startsWith("48:notes")) {
+        const selfMessage = textMessages[0];
+        if (selfMessage) return selfMessage.displayName;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Fallback: try the properties endpoint
+  const url = `${CHAT_SERVICE_BASE(token.region)}/users/ME/properties`;
+  try {
+    const response = await fetch(url, { headers: authHeaders(token) });
+    if (response.ok) {
+      const data = (await response.json()) as Record<string, unknown>;
+      if (typeof data.displayname === "string") {
+        return data.displayname;
+      }
+    }
+  } catch {
+    // Fall through to default
+  }
+
+  return "Unknown User";
+}
