@@ -21,6 +21,8 @@
  *   --list                   List conversations and exit
  *   --max-pages <n>          Max pagination pages (default: 100)
  *   --output <dir>           Output directory (default: artifacts/exports)
+ *   --auto                   Auto-acquire token (launches fresh Chrome, uses Intune passkey)
+ *   --email <email>           Corporate email for auto login (required with --auto)
  */
 
 import fs from "node:fs/promises";
@@ -28,6 +30,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
+import type { TeamsAuthToken } from "../src/direct-api-client.js";
 import {
   captureSkypeToken,
   findTeamsPage,
@@ -35,6 +38,7 @@ import {
   fetchAllMessages,
   fetchMembers,
 } from "../src/direct-api-client.js";
+import { acquireTokenAutomatically } from "../src/auto-token.js";
 import { convertApiMessagesToSnapshots } from "../src/direct-api-converter.js";
 import { renderMarkdown } from "../src/markdown-renderer.js";
 import { renderHtmlDocument } from "../src/html-renderer.js";
@@ -52,6 +56,8 @@ interface CliOptions {
   listOnly: boolean;
   maxPages: number;
   outputDirectory: string;
+  autoLogin: boolean;
+  email: string | null;
 }
 
 function parseArguments(): CliOptions {
@@ -62,6 +68,8 @@ function parseArguments(): CliOptions {
     listOnly: false,
     maxPages: 100,
     outputDirectory: defaultOutputDirectory,
+    autoLogin: false,
+    email: null,
   };
 
   for (let i = 0; i < arguments_.length; i++) {
@@ -81,6 +89,12 @@ function parseArguments(): CliOptions {
       case "--output":
         options.outputDirectory = arguments_[++i];
         break;
+      case "--auto":
+        options.autoLogin = true;
+        break;
+      case "--email":
+        options.email = arguments_[++i];
+        break;
     }
   }
 
@@ -99,8 +113,21 @@ function formatTimestamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 23);
 }
 
-async function main() {
-  const options = parseArguments();
+async function acquireToken(options: CliOptions): Promise<{ token: TeamsAuthToken; sourceUrl: string; disconnect: () => void }> {
+  if (options.autoLogin) {
+    if (!options.email) {
+      console.error("--email is required when using --auto");
+      process.exit(1);
+    }
+    console.log("Auto-acquiring token via Intune passkey...");
+    const token = await acquireTokenAutomatically({
+      email: options.email,
+      headless: true,
+      verbose: true,
+    });
+    console.log(`Token captured (${token.skypeToken.length} chars, region: ${token.region})`);
+    return { token, sourceUrl: "https://teams.cloud.microsoft/", disconnect: () => {} };
+  }
 
   console.log(`Connecting to Chrome at ${browserUrl}...`);
   const browser = await puppeteer.connect({ browserURL: browserUrl });
@@ -113,10 +140,16 @@ async function main() {
   }
   console.log(`Teams page: ${teamsPage.url()}`);
 
-  // Capture auth token
   console.log("Capturing auth token...");
   const token = await captureSkypeToken(teamsPage);
   console.log(`Token captured (${token.skypeToken.length} chars, region: ${token.region})`);
+  return { token, sourceUrl: teamsPage.url(), disconnect: () => browser.disconnect() };
+}
+
+async function main() {
+  const options = parseArguments();
+
+  const { token, sourceUrl, disconnect } = await acquireToken(options);
 
   // Fetch conversations
   console.log("\nFetching conversations...");
@@ -138,7 +171,7 @@ async function main() {
         `  [${i}] ${conversation.threadType}: "${conversation.topic}" (last: ${lastMessage})`,
       );
     }
-    browser.disconnect();
+    disconnect();
     return;
   }
 
@@ -155,7 +188,7 @@ async function main() {
       for (const conversation of displayableConversations.slice(0, 20)) {
         console.log(`  - "${conversation.topic}"`);
       }
-      browser.disconnect();
+      disconnect();
       process.exit(1);
     }
     targetConversation = match;
@@ -204,7 +237,7 @@ async function main() {
   const meta = {
     scope: "direct-api",
     title: targetConversation.topic,
-    sourceUrl: teamsPage.url(),
+    sourceUrl,
     exportedAt: new Date().toISOString(),
   };
 
@@ -225,7 +258,7 @@ async function main() {
   console.log(`  Messages: ${snapshots.length}`);
   console.log(`  Size: ${Math.round(content.length / 1024)} KB`);
 
-  browser.disconnect();
+  disconnect();
 }
 
 main().catch((error) => {
