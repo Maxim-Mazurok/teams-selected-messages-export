@@ -33,6 +33,7 @@ export interface WorkerCapturedMessage {
   emotions: WorkerCapturedEmotionEntry[] | null;
   diverseEmotions: WorkerCapturedEmotionEntry[] | null;
   quotedMessages: unknown | null;
+  conversationId: string | null;
 }
 
 export interface TimeMeta {
@@ -211,12 +212,6 @@ export interface ApiMessage {
   emotions?: ApiEmotion[];
   amsreferences?: string[];
   version?: string;
-}
-
-export interface ApiCredentials {
-  hasToken: boolean;
-  region: string | null;
-  lastApiConversationId: string | null;
 }
 
 export interface ApiFetchResult {

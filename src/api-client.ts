@@ -1,25 +1,29 @@
 /**
  * API Client
  *
- * Communicates with the background service worker to:
- *   1. Check whether a skypeToken has been captured from network traffic
- *   2. Request full chat message history via the Teams Chat Service REST API
- *   3. Convert raw API messages into MessageSnapshot records for export
+ * Communicates with the background service worker to fetch full chat history
+ * via the Teams Chat Service REST API.
  *
- * The background service worker intercepts outgoing requests via chrome.webRequest
- * to passively capture the skypeToken and API region. When the content script
- * requests a full chat export, the background fetches all pages of messages from
- * the REST API and returns the raw data here for formatting.
+ * Token capture flow:
+ *   1. worker-hook.js (MAIN world) intercepts fetch/XHR to capture x-skypetoken
+ *   2. worker-store.ts receives the token via window.postMessage bridge
+ *   3. This module reads the token from worker-store and passes it to background
+ *   4. Background service worker makes the actual cross-origin API calls
  */
 
 import type {
-  ApiCredentials,
   ApiFetchResult,
   ApiMessage,
   MessageSnapshot,
   ReactionInfo
 } from "./types.js";
 import { log } from "./state.js";
+import {
+  getCapturedToken,
+  getCapturedRegion,
+  getCapturedTokenType,
+  getLastSeenConversationId
+} from "./worker-store.js";
 
 // ── Chrome runtime helpers ────────────────────────────────────────────────────
 
@@ -49,26 +53,55 @@ function sendBackgroundMessage<T>(message: Record<string, unknown>): Promise<T> 
   });
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+const SERVICE_WORKER_RETRY_DELAY_MS = 500;
+const SERVICE_WORKER_MAX_RETRIES = 3;
 
-export async function getApiCredentials(): Promise<ApiCredentials> {
-  return sendBackgroundMessage<ApiCredentials>({
-    type: "teams-export/get-api-credentials"
-  });
+/**
+ * Send a message to the background service worker with automatic retry.
+ * MV3 service workers may not be immediately available after Chrome startup,
+ * so we retry a few times on "Receiving end does not exist" errors.
+ */
+async function sendBackgroundMessageWithRetry<T>(message: Record<string, unknown>): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= SERVICE_WORKER_MAX_RETRIES; attempt++) {
+    try {
+      return await sendBackgroundMessage<T>(message);
+    } catch (error) {
+      lastError = error as Error;
+      const isConnectionError = lastError.message.includes("Receiving end does not exist") ||
+        lastError.message.includes("Could not establish connection");
+      if (!isConnectionError || attempt === SERVICE_WORKER_MAX_RETRIES) {
+        throw lastError;
+      }
+      log(`[api-client] Service worker not responding, retrying (${attempt + 1}/${SERVICE_WORKER_MAX_RETRIES})...`);
+      await new Promise((resolve) => setTimeout(resolve, SERVICE_WORKER_RETRY_DELAY_MS * (attempt + 1)));
+    }
+  }
+  throw lastError!;
 }
 
-export function isApiAvailable(): Promise<boolean> {
-  return getApiCredentials()
-    .then((credentials) => credentials.hasToken)
-    .catch(() => false);
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export function isApiAvailable(): boolean {
+  return Boolean(getCapturedToken() && getCapturedRegion());
 }
 
 export async function fetchFullChatViaApi(
   conversationId: string
 ): Promise<ApiFetchResult> {
-  return sendBackgroundMessage<ApiFetchResult>({
+  const token = getCapturedToken();
+  const region = getCapturedRegion();
+
+  if (!token || !region) {
+    return { error: "No API credentials captured yet. Navigate to a Teams chat first." };
+  }
+
+  return sendBackgroundMessageWithRetry<ApiFetchResult>({
     type: "teams-export/fetch-full-chat",
-    conversationId
+    conversationId,
+    skypeToken: token,
+    tokenType: getCapturedTokenType(),
+    region
   });
 }
 
@@ -102,17 +135,90 @@ export function extractConversationIdFromUrl(): string | null {
 }
 
 /**
- * Get the conversation ID from the URL or from the background's tracked API
- * requests.
+ * Extract the conversation ID from the DOM dataset attribute set by worker-store.
+ * This is populated when the worker hook captures message batches with conversation IDs.
  */
-export async function resolveConversationId(): Promise<string | null> {
+function extractConversationIdFromDom(): string | null {
+  const fromDataset = document.documentElement.dataset.teamsExportConversationId;
+  if (fromDataset) return fromDataset;
+
+  // Teams Cloud DOM elements contain the conversation ID in their IDs.
+  // The active chat header has an ID like: chat-header-19:{userId}_{userId}@unq.gbl.spaces
+  const conversationIdPattern = /19:[a-f0-9-]+(?:_[a-f0-9-]+)?@(?:unq\.gbl\.spaces|thread\.v2)/i;
+
+  // Approach 1: find chat-title element and traverse upward to find chat-header
+  const chatTitle = document.querySelector('[data-tid="chat-title"]');
+  if (chatTitle) {
+    let current: Element | null = chatTitle;
+    for (let depth = 0; depth < 15 && current; depth++) {
+      const elementId = current.id || "";
+      if (elementId) {
+        const match = elementId.match(conversationIdPattern);
+        if (match) return match[0];
+      }
+      current = current.parentElement;
+    }
+  }
+
+  // Approach 2: check chat-list-item elements for the selected/active one
+  const chatListElements = document.querySelectorAll('[id*="chat-list-item_19:"]');
+  for (const element of chatListElements) {
+    const match = element.id.match(conversationIdPattern);
+    if (!match) continue;
+
+    let candidate: Element | null = element;
+    for (let depth = 0; depth < 5 && candidate; depth++) {
+      if (
+        candidate.getAttribute("aria-selected") === "true" ||
+        candidate.getAttribute("aria-current") === "true" ||
+        candidate.classList.contains("active") ||
+        candidate.classList.contains("selected")
+      ) {
+        return match[0];
+      }
+      candidate = candidate.parentElement;
+    }
+  }
+
+  // Approach 3: check message pane runway parents for conversation ID
+  const messagePane = document.querySelector('[data-tid="message-pane-list-runway"]');
+  if (messagePane) {
+    let current: Element | null = messagePane;
+    for (let depth = 0; depth < 5 && current; depth++) {
+      const elementId = current.id || "";
+      if (elementId) {
+        const match = elementId.match(conversationIdPattern);
+        if (match) return match[0];
+      }
+      current = current.parentElement;
+    }
+  }
+
+  // Approach 4 (fallback): scan chat-header elements
+  const chatHeaderElements = document.querySelectorAll('[id*="chat-header-19:"]');
+  for (const element of chatHeaderElements) {
+    const match = element.id.match(conversationIdPattern);
+    if (match) return match[0];
+  }
+
+  return null;
+}
+
+/**
+ * Get the conversation ID from the URL, DOM dataset, or from the worker's intercepted messages.
+ */
+export function resolveConversationId(): string | null {
   const fromUrl = extractConversationIdFromUrl();
   if (fromUrl) {
     return fromUrl;
   }
 
-  const credentials = await getApiCredentials().catch(() => null);
-  return credentials?.lastApiConversationId ?? null;
+  const fromDom = extractConversationIdFromDom();
+  if (fromDom) {
+    return fromDom;
+  }
+
+  return getLastSeenConversationId();
 }
 
 // ── API message → MessageSnapshot conversion ─────────────────────────────────

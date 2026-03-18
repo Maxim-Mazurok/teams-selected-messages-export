@@ -98,7 +98,9 @@ This file captures live DOM notes, validation status, and extension-packaging co
 - The selection treatment is now a soft highlight plus left accent rail instead of a full outline, which avoids the stacked-border collisions seen in the earlier prototype.
 - Reliable range selection in the installed extension path depends on handling row selection on `mousedown`, because Teams and Chrome can interfere with the later `click` event on some message structures.
 - Checkbox range selection is now driven from the checkbox click itself so shift-click works there as well.
-- Full chat history export currently relies on DOM scrolling and snapshotting rather than the worker/GraphQL path. It works against the live validated thread, but the worker path should become the primary source of truth later because it is less sensitive to virtualization behavior.
+- Full chat history export now uses the direct REST API as the primary path. The DOM scroll-harvesting fallback is retained for cases where the API token is unavailable or the conversation ID cannot be resolved.
+- The MSAL IC3 Bearer JWT in `localStorage` may expire after an extended session. Reloading Teams refreshes it.
+- Teams Cloud (`teams.cloud.microsoft`) has no path-based URL routing. The conversation ID must be extracted from DOM element IDs (`chat-header-19:...`) rather than the page URL.
 
 ## Worker Hook Next Steps
 
@@ -106,9 +108,19 @@ This file captures live DOM notes, validation status, and extension-packaging co
 2. ~~Patch `window.Worker` first.~~ **Done** — Worker constructor is patched; confirmed with `window.Worker.name === "WorkerWrapper"`.
 3. ~~Bridge only summarized payloads back to the extension UI layer with `window.postMessage`.~~ **Done** (`worker-store.ts` listens and stores messages end-to-end).
 4. Build a more complete ID map from worker responses. The current member map is populated only from message `fromUser` fields. Capturing explicit member-list responses (e.g. `ComponentsChatQueriesChatQuery`) and the `singleMe` identity would fill remaining gaps in reaction actor resolution.
-5. Join worker-derived `content` fields to exports so the HTML export uses raw worker HTML instead of DOM-scraped HTML, which would be more reliable against DOM virtualization.
+5. ~~Join worker-derived `content` fields to exports so the HTML export uses raw worker HTML instead of DOM-scraped HTML.~~ **Superseded** — the direct REST API now provides raw content for full chat exports, making worker content fields unnecessary for that path.
 6. Extend validation with mixed-source checks: DOM-selected messages combined with worker-enriched reactions; test with reactions that have more than one actor to confirm display-name resolution; test against channel threads in addition to DM and group chats.
-7. Consider making the worker store the primary source for full-chat export history instead of the current DOM-scroll approach, since the worker data is already cached from indexedDB and does not require virtualization-safe scrolling.
+7. ~~Consider making the worker store the primary source for full-chat export history instead of the current DOM-scroll approach.~~ **Done** — the direct REST API via `api-client.ts` is now the primary source for full chat export. The worker store enriches selected-message exports; the REST API provides complete history.
+
+## Direct REST API Integration (March 2026)
+
+- The extension now reads the MSAL IC3 Bearer JWT directly from `localStorage` (key matching `*accesstoken*ic3.teams.office.com*`, `secret` field) via `worker-hook.js`.
+- The API region is extracted from the SKYPE-TOKEN discovery entry's `regionGtms.chatService` field.
+- Conversation ID is resolved from the DOM since Teams Cloud URLs have no path-based routing. Four DOM extraction approaches are tried in order: (1) chat-title ancestor traversal, (2) selected chat-list-item, (3) message pane runway parents, (4) chat-header element scan.
+- The background service worker (`background.js`) makes cross-origin API calls to `{region}.ng.msg.teams.microsoft.com/v1/users/ME/conversations/{id}/messages` with automatic pagination via `_metadata.backwardLink`.
+- Both bearer (MSAL IC3) and legacy skypetoken auth are supported.
+- MV3 service worker dormancy is handled by `sendBackgroundMessageWithRetry()` with 3 retries and exponential backoff.
+- Verified: 3,121 messages fetched in 16 API pages (vs ~346 via scroll-harvest in ~60s previously).
 
 ## Expected follow-up
 
@@ -116,3 +128,6 @@ This file captures live DOM notes, validation status, and extension-packaging co
 - Confirm compatibility across 1:1 chats, group chats, and channel threads
 - Resolve richer reaction actor attribution through the worker path
 - Add release-ready packaging details such as store metadata and publish checklist
+- Handle MSAL token expiration gracefully (detect 401 and prompt user to reload)
+- Report API fetch progress (page count and message count) in the UI busy indicator
+- Test API path on classic Teams (`teams.microsoft.com`) where URL-based conversation IDs may be available

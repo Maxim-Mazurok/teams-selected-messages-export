@@ -427,13 +427,13 @@ import {
  * messages if successful, or null if the API is not available / fails.
  */
 async function tryApiFetch(): Promise<MessageSnapshot[] | null> {
-  const apiAvailable = await isApiAvailable();
+  const apiAvailable = isApiAvailable();
   if (!apiAvailable) {
     log("[history] API not available — falling back to scroll-harvesting.");
     return null;
   }
 
-  const conversationId = await resolveConversationId();
+  const conversationId = resolveConversationId();
   if (!conversationId) {
     log("[history] Could not determine conversation ID — falling back to scroll-harvesting.");
     return null;

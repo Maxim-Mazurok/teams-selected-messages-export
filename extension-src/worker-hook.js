@@ -79,6 +79,7 @@
           : message.diverseEmotions
       ),
       quotedMessages: message.quotedMessages || null,
+      conversationId: message.conversationId || message.conversationid || null,
     };
   }
 
@@ -231,6 +232,92 @@
     }
   }
 
+  // ── Auth token capture via localStorage ──────────────────────────────────────
+  //
+  // Teams Cloud encrypts the skypeToken in localStorage, but stores MSAL OAuth2
+  // access tokens with the raw JWT in the "secret" field. The IC3 MSAL token
+  // (scoped to ic3.teams.office.com) works as a Bearer token with the Chat
+  // Service REST API at {region}.ng.msg.teams.microsoft.com.
+  //
+  // Region is extracted from the SKYPE-TOKEN Discover entry's regionGtms map
+  // which contains the chatService URL.
+  //
+  // Key patterns:
+  //   tmp.auth.v1.GLOBAL.PrimaryUserId.PrimaryUserId  → { item: "<userId>" }
+  //   tmp.auth.v1.<userId>.Discover.SKYPE-TOKEN        → { item: { regionGtms: { chatService: "https://{region}.ng.msg..." } } }
+  //   MSAL accesstoken key containing "ic3.teams.office.com" → { secret: "<JWT>" }
+
+  function extractRegionFromGtms(regionGtms) {
+    if (!regionGtms || typeof regionGtms !== "object") return null;
+    // Scan GTM values for a URL containing {region}.ng.msg.teams.microsoft.com
+    var keys = Object.keys(regionGtms);
+    for (var i = 0; i < keys.length; i++) {
+      var value = regionGtms[keys[i]];
+      if (typeof value !== "string") continue;
+      var match = value.match(/https?:\/\/(\w+)\.ng\.msg\.teams\.microsoft\.com/);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  function readTokenFromLocalStorage() {
+    try {
+      // Step 1: Find the MSAL IC3 Bearer token
+      var ic3Token = null;
+      for (var i = 0; i < localStorage.length; i++) {
+        var storageKey = localStorage.key(i);
+        if (storageKey.indexOf("accesstoken") === -1 || storageKey.indexOf("ic3.teams.office.com") === -1) continue;
+        var tokenEntry = tryParseJson(localStorage.getItem(storageKey));
+        if (tokenEntry && tokenEntry.secret && tokenEntry.secret.length > 100) {
+          // Check expiration (MSAL stores expiresOn as Unix seconds string)
+          if (tokenEntry.expiresOn && Date.now() / 1_000 > parseInt(tokenEntry.expiresOn, 10)) continue;
+          ic3Token = tokenEntry.secret;
+          break;
+        }
+      }
+
+      if (!ic3Token) return;
+
+      // Step 2: Extract region from SKYPE-TOKEN → regionGtms
+      var region = null;
+      var primaryUserRaw = localStorage.getItem("tmp.auth.v1.GLOBAL.PrimaryUserId.PrimaryUserId");
+      if (primaryUserRaw) {
+        var primaryUserParsed = tryParseJson(primaryUserRaw);
+        if (primaryUserParsed && primaryUserParsed.item) {
+          var skypeTokenKey = "tmp.auth.v1." + primaryUserParsed.item + ".Discover.SKYPE-TOKEN";
+          var skypeTokenRaw = localStorage.getItem(skypeTokenKey);
+          if (skypeTokenRaw) {
+            var skypeTokenParsed = tryParseJson(skypeTokenRaw);
+            if (skypeTokenParsed && skypeTokenParsed.item) {
+              region = extractRegionFromGtms(skypeTokenParsed.item.regionGtms);
+            }
+          }
+        }
+      }
+
+      // Bridge the token. The content script (running in ISOLATED world at
+      // document_idle) deduplicates on receipt, so we always bridge here to
+      // ensure the first interval after the content script loads delivers it.
+      postBridge("auth-token", {
+        token: ic3Token,
+        region: region,
+        tokenType: "bearer",
+        source: "localStorage-msal"
+      });
+    } catch {
+      // Never crash the page
+    }
+  }
+
+  // Read token immediately (may be missed if content script not ready yet),
+  // on DOMContentLoaded (fires around when content script loads at document_idle),
+  // and then poll every 5 seconds for token refreshes.
+  readTokenFromLocalStorage();
+  document.addEventListener("DOMContentLoaded", function () {
+    readTokenFromLocalStorage();
+  });
+  setInterval(readTokenFromLocalStorage, 5 * 1_000);
+
   // ── Worker constructor patch ───────────────────────────────────────────────
 
   var OriginalWorker = window.Worker;
@@ -260,5 +347,5 @@
   window.__teamsExportWorkerHookInstalled = true;
 
   // eslint-disable-next-line no-console
-  console.debug("[teams-export] worker hook installed");
+  console.debug("[teams-export] worker hook installed (with localStorage auth capture)");
 })();

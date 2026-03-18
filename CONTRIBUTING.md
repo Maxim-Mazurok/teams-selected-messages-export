@@ -71,11 +71,39 @@ The export tool is built from modular TypeScript source files in `src/`, bundled
 | `markdown-renderer.ts` | Markdown conversion and document rendering |
 | `html-renderer.ts` | HTML document rendering for export |
 | `export-helpers.ts` | Export payload creation, download triggers, clipboard |
-| `history.ts` | Full chat history scroll harvesting |
+| `history.ts` | Full chat history export orchestration (API-first, scroll-harvest fallback) |
+| `api-client.ts` | Direct REST API client — conversation ID resolution, message fetching and conversion |
+| `worker-store.ts` | Bridge listener for MAIN-world worker hook — stores messages, members, auth tokens |
 | `toolbar.ts` | Toolbar DOM creation, dock positioning, busy state |
 | `lifecycle.ts` | Global event handlers, MutationObserver, extension bridge |
 
-When packaged as a Chrome extension, the bundled content script is injected at `document_idle` on Teams pages, with a background service worker handling the extension action click.
+When packaged as a Chrome extension, the bundled content script is injected at `document_idle` on Teams pages. A separate `worker-hook.js` runs at `document_start` in the `MAIN` world to intercept worker traffic and capture auth tokens. The background service worker handles both extension icon clicks and cross-origin API fetch requests.
+
+### Full chat export architecture
+
+The full chat export uses a two-tier approach:
+
+1. **Primary: REST API** — `worker-hook.js` reads the MSAL IC3 Bearer JWT from `localStorage` (keys matching `*accesstoken*ic3.teams.office.com*`) and the API region from the SKYPE-TOKEN discovery entry. These are bridged to the content script via `window.postMessage`, stored in `worker-store.ts`, and passed to `api-client.ts`. The background service worker (`background.js`) makes the actual cross-origin API calls to `{region}.ng.msg.teams.microsoft.com`, paginating through all messages.
+
+2. **Fallback: Scroll-harvesting** — If the API path fails (no token, no conversation ID, API error), `history.ts` falls back to DOM scrolling: it scrolls the chat upward, captures visible message snapshots, and accumulates them until reaching the top.
+
+### Build pipeline
+
+The build has two steps that must both be run:
+
+1. `node scripts/bundle.mjs` — esbuild bundles `src/main.ts` → `dist/content-script.js` (IIFE format)
+2. `node scripts/build-extension.mjs` — copies `dist/content-script.js` + `extension-src/` files → `extension-dist/`
+
+The `npm run build:extension` script runs both steps. Always use this when testing the extension locally.
+
+### Cross-world communication
+
+Teams Cloud uses a Service Worker that adds auth headers after the main-thread fetch, so intercepting fetch/XHR in the main world does not capture tokens. Instead:
+
+- `worker-hook.js` runs in the **MAIN world** at `document_start` and reads tokens directly from `localStorage`
+- It posts bridge messages via `window.postMessage({ source: "teams-export-worker-hook", ... })`
+- `worker-store.ts` listens in the **ISOLATED world** and stores the received data
+- DOM `dataset` attributes are used for cross-world data where needed (e.g., conversation ID)
 
 ### Injection mode (development)
 
@@ -90,15 +118,32 @@ The project includes two CDP-based validation harnesses:
 
 Both write artifacts to `artifacts/exports/` and `artifacts/screenshots/`.
 
-### Worker interception probe
+### Worker interception
 
-`scripts/probe-worker-intercepts.mjs` is an experimental probe that patches `window.Worker` at page start to capture Teams GraphQL operations flowing through the precompiled web worker. This is documented in `docs/findings.md` under "Worker Hook Next Steps".
+`worker-hook.js` also patches `window.Worker` at page start to capture Teams GraphQL operations flowing through the precompiled web worker. This provides structured message data, member identities, and reaction details that enrich DOM-extracted message records. The probe script at `scripts/probe-worker-intercepts.mjs` demonstrates standalone interception and is documented in `docs/findings.md`.
 
 ## Testing
 
-- **Unit tests** (`tests/unit/`) — TypeScript tests for core functions (utilities, selection, renderers, export helpers) and MJS tests for worker-probe summarization helpers
+- **Unit tests** (`tests/unit/`) — TypeScript tests for core functions (utilities, selection, renderers, export helpers, API client, worker-store) and MJS tests for background service worker and worker-probe summarization helpers
 - **Integration tests** (`tests/integration/`) — run the export UI against a local Teams-like HTML fixture in headless Chrome via Puppeteer
 - **E2E tests** — reuse the extension validation harness against a live signed-in Teams session
+
+### Test coverage highlights
+
+| Area | Test file | Coverage |
+|------|-----------|----------|
+| API message conversion | `api-client.test.ts` | Message filtering, timestamp handling, reaction conversion, author fallback |
+| Conversation ID extraction | `api-client.test.ts` | URL patterns, encoded IDs, Teams Cloud root |
+| Worker-store bridge | `worker-store.test.ts` | Message batches, auth tokens, members, event filtering |
+| Background service worker | `background.test.mjs` | Auth headers, pagination, error responses, URL construction |
+| Selection and ordering | `selection.test.ts` | Range selection, chronological ordering |
+| Content extraction | `content-extraction.test.ts` | Channel time label parsing |
+| Export helpers | `export-helpers.test.ts` | Labels, summaries, scope suffixes |
+| Markdown rendering | `markdown-renderer.test.ts` | Quotes, reactions, mention merging |
+| Utilities | `utilities.test.ts` | Text normalization, HTML escaping, color parsing |
+| Full UI flow | `content-script-fixture.test.mjs` | Panel controls, selection, export, theme switching |
+| Channel posts | `channel-fixture.test.mjs` | Posts, replies, subjects, mentions |
+| Thread replies | `thread-replies-fixture.test.mjs` | Original post capture, reply export |
 
 ## Release
 

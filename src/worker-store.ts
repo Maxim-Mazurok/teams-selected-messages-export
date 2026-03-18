@@ -28,6 +28,14 @@ const memberDisplayNameMap = new Map<string, string>();
 let totalBatchesReceived = 0;
 let totalMessagesReceived = 0;
 
+/** Auth token captured from fetch/XHR interception in the MAIN world. */
+let capturedSkypeToken: string | null = null;
+let capturedRegion: string | null = null;
+let capturedTokenType: "skypetoken" | "bearer" = "skypetoken";
+
+/** Conversation ID extracted from worker message batches. */
+let lastSeenConversationId: string | null = null;
+
 // ── Public accessors ──────────────────────────────────────────────────────────
 
 /**
@@ -64,6 +72,22 @@ export function isWorkerHookInstalled(): boolean {
   return Boolean((window as Window & { __teamsExportWorkerHookInstalled?: boolean }).__teamsExportWorkerHookInstalled);
 }
 
+export function getCapturedToken(): string | null {
+  return capturedSkypeToken;
+}
+
+export function getCapturedRegion(): string | null {
+  return capturedRegion;
+}
+
+export function getCapturedTokenType(): "skypetoken" | "bearer" {
+  return capturedTokenType;
+}
+
+export function getLastSeenConversationId(): string | null {
+  return lastSeenConversationId;
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 function registerMember(userId: string, displayName: string | null): void {
@@ -97,6 +121,12 @@ function handleMessageBatch(payload: {
       if (isNewMember && memberDisplayNameMap.has(message.authorId)) {
         document.documentElement.dataset.teamsExportWorkerMembers = String(memberDisplayNameMap.size);
       }
+    }
+
+    // Track conversation ID from message records
+    if (message.conversationId && !lastSeenConversationId) {
+      lastSeenConversationId = message.conversationId;
+      document.documentElement.dataset.teamsExportConversationId = lastSeenConversationId;
     }
   }
 
@@ -135,6 +165,26 @@ function handleMembers(payload: { members: Array<{ id: string; displayName: stri
   }
 }
 
+function handleAuthToken(payload: { token: string; region: string | null; tokenType?: string; source: string }): void {
+  if (!payload.token || payload.token.length < 100) return;
+
+  const isNew = capturedSkypeToken !== payload.token;
+  capturedSkypeToken = payload.token;
+  if (payload.region) {
+    capturedRegion = payload.region;
+  }
+  if (payload.tokenType === "bearer") {
+    capturedTokenType = "bearer";
+  }
+
+  if (isNew) {
+    log(
+      `[worker-store] auth token captured (type: ${capturedTokenType}, region: ${capturedRegion ?? "unknown"}, ` +
+        `source: ${payload.source}, length: ${payload.token.length})`
+    );
+  }
+}
+
 // ── Event listener setup ──────────────────────────────────────────────────────
 
 function onWindowMessage(event: MessageEvent): void {
@@ -155,6 +205,8 @@ function onWindowMessage(event: MessageEvent): void {
       handleMeIdentity(payload as Parameters<typeof handleMeIdentity>[0]);
     } else if (type === "members") {
       handleMembers(payload as Parameters<typeof handleMembers>[0]);
+    } else if (type === "auth-token") {
+      handleAuthToken(payload as { token: string; region: string | null; tokenType?: string; source: string });
     }
   } catch (error) {
     log(`[worker-store] error processing bridge event "${type}":`, error);

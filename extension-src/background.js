@@ -1,115 +1,33 @@
-// ── Token capture state ────────────────────────────────────────────────────────
-
-let capturedSkypeToken = null;
-let capturedRegion = null;
-
-// ── Intercept requests to capture the skype token ─────────────────────────────
-
-chrome.webRequest.onSendHeaders.addListener(
-  (details) => {
-    const urlMatch = details.url.match(
-      /https:\/\/(\w+)\.ng\.msg\.teams\.microsoft\.com/
-    );
-    if (urlMatch) {
-      capturedRegion = urlMatch[1];
-    }
-
-    if (!details.requestHeaders) {
-      return;
-    }
-
-    for (const header of details.requestHeaders) {
-      const name = header.name.toLowerCase();
-
-      if (name === "authentication" && header.value) {
-        const prefix = "skypetoken=";
-        if (header.value.startsWith(prefix)) {
-          capturedSkypeToken = header.value.slice(prefix.length);
-        }
-      }
-
-      // Fallback: some requests use x-skypetoken header directly
-      if (name === "x-skypetoken" && header.value && !capturedSkypeToken) {
-        capturedSkypeToken = header.value;
-      }
-    }
-  },
-  { urls: ["https://*.ng.msg.teams.microsoft.com/*"] },
-  ["requestHeaders", "extraHeaders"]
-);
-
-// Also capture from teams.cloud.microsoft requests (x-skypetoken header)
-chrome.webRequest.onSendHeaders.addListener(
-  (details) => {
-    if (!details.requestHeaders) {
-      return;
-    }
-
-    for (const header of details.requestHeaders) {
-      if (header.name.toLowerCase() === "x-skypetoken" && header.value) {
-        capturedSkypeToken = header.value;
-
-        // Extract region from URL pattern like /api/mt/apac/...
-        const regionMatch = details.url.match(/\/api\/(?:mt|chatsvc)\/(\w+)\//);
-        if (regionMatch && !capturedRegion) {
-          capturedRegion = regionMatch[1];
-        }
-      }
-    }
-  },
-  {
-    urls: [
-      "https://teams.cloud.microsoft/*",
-      "https://teams.microsoft.com/*"
-    ]
-  },
-  ["requestHeaders", "extraHeaders"]
-);
-
-// ── Conversation ID tracking from intercepted API URLs ────────────────────────
-
-let lastApiConversationId = null;
-
-chrome.webRequest.onSendHeaders.addListener(
-  (details) => {
-    const conversationMatch = details.url.match(
-      /\/conversations\/([^/?]+)\/messages/
-    );
-    if (conversationMatch) {
-      lastApiConversationId = decodeURIComponent(conversationMatch[1]);
-    }
-  },
-  { urls: ["https://*.ng.msg.teams.microsoft.com/*"] },
-  []
-);
-
 // ── API message fetching ──────────────────────────────────────────────────────
+//
+// The content script captures an auth token via the MAIN-world worker hook
+// (reads MSAL IC3 Bearer JWT from localStorage) and passes it to the background
+// when requesting a full chat export. The background makes the cross-origin API
+// calls since content scripts cannot reach *.ng.msg.teams.microsoft.com directly.
+//
+// Two token types are supported:
+//   "bearer"      → Authorization: Bearer <jwt>     (MSAL IC3 token)
+//   "skypetoken"  → Authentication: skypetoken=<token>  (legacy)
 
 const API_PAGE_SIZE = 200;
 const API_MAX_PAGES = 100;
 
-async function fetchChatMessages(conversationId) {
-  if (!capturedSkypeToken || !capturedRegion) {
-    return {
-      error: "No API credentials captured yet. Navigate to a Teams chat first."
-    };
-  }
-
-  const baseUrl = `https://${capturedRegion}.ng.msg.teams.microsoft.com/v1`;
+async function fetchChatMessages(token, tokenType, region, conversationId) {
+  const baseUrl = `https://${region}.ng.msg.teams.microsoft.com/v1`;
   const encodedConversationId = encodeURIComponent(conversationId);
   let nextUrl = `${baseUrl}/users/ME/conversations/${encodedConversationId}/messages?pageSize=${API_PAGE_SIZE}`;
   const allMessages = [];
   let pageCount = 0;
 
+  const authHeaders =
+    tokenType === "bearer"
+      ? { Authorization: `Bearer ${token}` }
+      : { Authentication: `skypetoken=${token}` };
+
   while (nextUrl && pageCount < API_MAX_PAGES) {
-    const response = await fetch(nextUrl, {
-      headers: {
-        Authentication: `skypetoken=${capturedSkypeToken}`
-      }
-    });
+    const response = await fetch(nextUrl, { headers: authHeaders });
 
     if (response.status === 401 || response.status === 403) {
-      capturedSkypeToken = null;
       return {
         error: `Authentication failed (${response.status}). Token may have expired — reload Teams and try again.`
       };
@@ -140,37 +58,20 @@ async function fetchChatMessages(conversationId) {
 // ── Message handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "teams-export/toggle-panel") {
-    if (!sender.tab || !sender.tab.id) {
-      return;
-    }
-    chrome.tabs.sendMessage(sender.tab.id, {
-      type: "teams-export/toggle-panel"
-    });
-    return;
-  }
-
-  if (message.type === "teams-export/get-api-credentials") {
-    sendResponse({
-      hasToken: Boolean(capturedSkypeToken),
-      region: capturedRegion,
-      lastApiConversationId
-    });
-    return true;
-  }
-
   if (message.type === "teams-export/fetch-full-chat") {
-    const conversationId =
-      message.conversationId || lastApiConversationId;
+    const { skypeToken, tokenType, region, conversationId } = message;
 
-    if (!conversationId) {
-      sendResponse({
-        error: "Could not determine conversation ID. Open a chat and try again."
-      });
+    if (!skypeToken || !region) {
+      sendResponse({ error: "Missing API credentials (token or region)." });
       return true;
     }
 
-    fetchChatMessages(conversationId)
+    if (!conversationId) {
+      sendResponse({ error: "Missing conversation ID." });
+      return true;
+    }
+
+    fetchChatMessages(skypeToken, tokenType || "skypetoken", region, conversationId)
       .then(sendResponse)
       .catch((error) => sendResponse({ error: String(error) }));
 
