@@ -416,6 +416,45 @@ export async function harvestFullChatMessages(): Promise<MessageSnapshot[]> {
   }
 }
 
+import {
+  isApiAvailable,
+  resolveConversationId,
+  fetchAndConvertFullChat
+} from "./api-client.js";
+
+/**
+ * Try to fetch the full chat history via the direct REST API. Returns the
+ * messages if successful, or null if the API is not available / fails.
+ */
+async function tryApiFetch(): Promise<MessageSnapshot[] | null> {
+  const apiAvailable = await isApiAvailable();
+  if (!apiAvailable) {
+    log("[history] API not available — falling back to scroll-harvesting.");
+    return null;
+  }
+
+  const conversationId = await resolveConversationId();
+  if (!conversationId) {
+    log("[history] Could not determine conversation ID — falling back to scroll-harvesting.");
+    return null;
+  }
+
+  log(`[history] Attempting direct API fetch for conversation ${conversationId}`);
+  callbacks.setBusy(true, "Fetching chat history via API...");
+
+  const result = await fetchAndConvertFullChat(conversationId, (text) => {
+    callbacks.setBusy(true, text);
+  });
+
+  if ("error" in result) {
+    log(`[history] API fetch failed: ${result.error} — falling back to scroll-harvesting.`);
+    return null;
+  }
+
+  log(`[history] API fetch returned ${result.snapshots.length} messages in ${result.pageCount} pages`);
+  return result.snapshots;
+}
+
 export async function exportFullHistory(
   format: string = "md",
   options: { download?: boolean; closePanel?: boolean } = {}
@@ -427,16 +466,23 @@ export async function exportFullHistory(
     return null;
   }
 
-  const runway = getRunwayElement();
-  if (!runway) {
-    log("No Teams message runway found for full-history export.");
-    return null;
-  }
-
   callbacks.setBusy(true, "Loading full chat history...");
 
   try {
-    const messages = await harvestFullChatMessages();
+    // Try the direct REST API first (faster, more complete, no scrolling needed)
+    let messages = await tryApiFetch();
+
+    // Fall back to scroll-harvesting if the API approach didn't work
+    if (!messages || messages.length === 0) {
+      const runway = getRunwayElement();
+      if (!runway) {
+        log("No Teams message runway found for full-history export.");
+        return null;
+      }
+      callbacks.setBusy(true, "Scrolling to load full chat history...");
+      messages = await harvestFullChatMessages();
+    }
+
     if (!messages.length) {
       return null;
     }

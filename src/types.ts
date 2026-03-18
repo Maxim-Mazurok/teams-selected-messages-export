@@ -181,3 +181,46 @@ export interface ToolbarElements {
   launcher: HTMLButtonElement;
   quickCopyButton: HTMLButtonElement;
 }
+
+/* ─── API message types (Teams Chat Service REST API) ─────────────────────── */
+
+export interface ApiEmotionUser {
+  mri: string;
+  displayName?: string;
+  time: string;
+}
+
+export interface ApiEmotion {
+  key: string;
+  users: ApiEmotionUser[];
+}
+
+/** Raw message shape returned by the Teams Chat Service REST API. */
+export interface ApiMessage {
+  id: string;
+  type: string;
+  messagetype?: string;
+  composetime?: string;
+  originalarrivaltime?: string;
+  from?: string;
+  imdisplayname?: string;
+  content?: string;
+  properties?: Record<string, unknown>;
+  clientmessageid?: string;
+  conversationid?: string;
+  emotions?: ApiEmotion[];
+  amsreferences?: string[];
+  version?: string;
+}
+
+export interface ApiCredentials {
+  hasToken: boolean;
+  region: string | null;
+  lastApiConversationId: string | null;
+}
+
+export interface ApiFetchResult {
+  messages?: ApiMessage[];
+  pageCount?: number;
+  error?: string;
+}

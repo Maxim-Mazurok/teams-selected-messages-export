@@ -10,11 +10,12 @@
     "128": "icons/icon-128.png"
   },
   "permissions": [
-    "tabs"
+    "webRequest"
   ],
   "host_permissions": [
     "https://teams.microsoft.com/*",
-    "https://teams.cloud.microsoft/*"
+    "https://teams.cloud.microsoft/*",
+    "https://*.ng.msg.teams.microsoft.com/*"
   ],
   "background": {
     "service_worker": "background.js"
