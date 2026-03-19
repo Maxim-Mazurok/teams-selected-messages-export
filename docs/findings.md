@@ -122,10 +122,25 @@ This file captures live DOM notes, validation status, and extension-packaging co
 - MV3 service worker dormancy is handled by `sendBackgroundMessageWithRetry()` with 3 retries and exponential backoff.
 - Verified: 3,121 messages fetched in 16 API pages (vs ~346 via scroll-harvest in ~60s previously).
 
+## Channel Export Support (March 2026)
+
+- Channel conversations use IDs ending in `@thread.tacv2` (new format) or `@thread.skype` (legacy). The conversation ID regex was updated to: `/19:[a-f0-9-]+(?:_[a-f0-9-]+)?@(?:unq\.gbl\.spaces\|thread\.(?:v2\|tacv2\|skype))/i`.
+- Teams Cloud has no URL-based routing for channels either. Two new DOM extraction approaches were added:
+  - Approach 5: Active channel treeitem — `[role="treeitem"][tabindex="0"][data-testid*="channel-list-item-19:"]`
+  - Approach 6: Fallback — `[id*="channel-list-item-19:"]`
+- The MV3 background service worker consistently fails to start in Playwright-managed Chrome sessions (CDP target list shows no extension service worker). A direct fetch fallback was added: content scripts make cross-origin fetches using the extension's `host_permissions` (Chrome 95+). Teams' own service worker only intercepts its own origin, not `*.ng.msg.teams.microsoft.com`.
+- The main channel messages endpoint (`/v1/users/ME/conversations/{channelId}/messages?pageSize=200`) returns ALL messages — root posts and replies — in a flat list. No separate thread-reply API call is needed for export.
+- Thread membership is determined by the `conversationLink` field, which contains `;messageid={parentThreadId}` for channel messages.
+- The endpoint `/messages/{threadId}/replies` returns 404. The correct URL for fetching thread replies individually is `{channelId};messageid={threadId}/messages?pageSize=200`.
+- Thread grouping: messages are grouped by extracted thread ID, root post placed first, replies sorted chronologically within each thread, threads concatenated in order.
+- Markdown rendering: root posts use `##` heading, thread replies use `### ↳` heading prefix.
+- HTML rendering: thread replies get `.thread-reply` CSS class (left indent + border).
+- Verified: 178 messages from AI Technologies channel (33 root posts + 145 replies) exported correctly with thread grouping.
+
 ## Expected follow-up
 
 - Lock message row selectors to the current Teams web DOM
-- Confirm compatibility across 1:1 chats, group chats, and channel threads
+- ~~Confirm compatibility across 1:1 chats, group chats, and channel threads~~ **Done** — channel export verified March 2026.
 - Resolve richer reaction actor attribution through the worker path
 - Add release-ready packaging details such as store metadata and publish checklist
 - Handle MSAL token expiration gracefully (detect 401 and prompt user to reload)

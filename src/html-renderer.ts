@@ -53,10 +53,11 @@ export function renderHtmlDocument(
       const quoteHtml = renderQuotedReplyHtml(message.quote);
       const reactionsHtml = renderReactionsHtml(message.reactions);
       const subjectHtml = message.subject ? `<h3>${escapeHtml(message.subject)}</h3>` : "";
+      const replyClass = message.isReply ? " thread-reply" : "";
       return `
-          <article class="message">
+          <article class="message${replyClass}">
             <header>
-              <strong>${safeAuthor}</strong>
+              <strong>${message.isReply ? "↳ " : ""}${safeAuthor}</strong>
               <time datetime="${escapeHtml(message.dateTime || "")}">${safeTime}</time>
             </header>
             <section class="body">${subjectHtml}${quoteHtml}${message.html || `<p>${escapeHtml(message.plainText)}</p>`}${reactionsHtml}</section>
@@ -153,6 +154,11 @@ export function renderHtmlDocument(
         background: rgba(19, 34, 56, 0.06);
         color: #1b3455;
         font-size: 12px;
+      }
+      .thread-reply {
+        margin-left: 32px;
+        border-left: 3px solid #0d61d8;
+        background: #f9fbfe;
       }
     </style>
   </head>

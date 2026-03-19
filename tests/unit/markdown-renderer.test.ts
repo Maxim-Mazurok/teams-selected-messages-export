@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   formatQuotedReplyLabel,
   renderQuotedReplyMarkdown,
-  renderReactionsMarkdown
+  renderReactionsMarkdown,
+  renderMarkdown
 } from "../../src/markdown-renderer.js";
 
 describe("formatQuotedReplyLabel", () => {
@@ -142,5 +143,58 @@ describe("mention merging in markdown output", () => {
     const markdown = "Contact @john @smith for details";
     const merged = markdown.replace(/@([A-Z][a-z]+)\s+@([A-Z][a-z]+)([\s,])/g, "@$1 $2$3");
     assert.equal(merged, "Contact @john @smith for details");
+  });
+});
+
+describe("renderMarkdown thread reply formatting", () => {
+  const baseMeta = {
+    title: "Test Channel",
+    sourceUrl: "https://teams.cloud.microsoft/",
+    exportedAt: "2026-03-19",
+    scope: "full-chat"
+  };
+
+  function makeMessage(overrides: Partial<import("../../src/types.js").MessageSnapshot> = {}): import("../../src/types.js").MessageSnapshot {
+    return {
+      id: "1",
+      index: 0,
+      author: "Alice",
+      timeLabel: "2026-03-19 01:00",
+      dateTime: "2026-03-19T01:00:00.000Z",
+      subject: "",
+      quote: null,
+      reactions: [],
+      html: "<p>Hello</p>",
+      markdown: "Hello",
+      plainText: "Hello",
+      ...overrides
+    };
+  }
+
+  it("renders root posts with h2 heading", () => {
+    const result = renderMarkdown(
+      [makeMessage({ isReply: false, threadId: "100" })],
+      baseMeta
+    );
+    assert.ok(result.includes("## Alice | 2026-03-19 01:00"));
+    assert.ok(!result.includes("### ↳"));
+  });
+
+  it("renders thread replies with h3 heading and arrow prefix", () => {
+    const result = renderMarkdown(
+      [makeMessage({ id: "200", isReply: true, threadId: "100", author: "Bob" })],
+      baseMeta
+    );
+    assert.ok(result.includes("### ↳ Bob | 2026-03-19 01:00"));
+    assert.ok(!result.includes("## Bob"));
+  });
+
+  it("renders messages without thread metadata as h2", () => {
+    const result = renderMarkdown(
+      [makeMessage()],
+      baseMeta
+    );
+    assert.ok(result.includes("## Alice | 2026-03-19 01:00"));
+    assert.ok(!result.includes("### ↳"));
   });
 });

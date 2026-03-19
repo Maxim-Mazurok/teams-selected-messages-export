@@ -82,6 +82,10 @@ export interface MessageSnapshot {
   markdown: string;
   plainText: string;
   captureOrder?: number;
+  /** Thread root message ID for channel posts. Present when the message belongs to a thread. */
+  threadId?: string;
+  /** True when this message is a reply within a thread (not the root post). */
+  isReply?: boolean;
 }
 
 export interface ExportPayload {
@@ -209,6 +213,7 @@ export interface ApiMessage {
   properties?: Record<string, unknown>;
   clientmessageid?: string;
   conversationid?: string;
+  conversationLink?: string;
   emotions?: ApiEmotion[];
   amsreferences?: string[];
   version?: string;

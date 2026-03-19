@@ -83,7 +83,9 @@ When packaged as a Chrome extension, the bundled content script is injected at `
 
 The full chat export uses a two-tier approach:
 
-1. **Primary: REST API** — `worker-hook.js` reads the MSAL IC3 Bearer JWT from `localStorage` (keys matching `*accesstoken*ic3.teams.office.com*`) and the API region from the SKYPE-TOKEN discovery entry. These are bridged to the content script via `window.postMessage`, stored in `worker-store.ts`, and passed to `api-client.ts`. The background service worker (`background.js`) makes the actual cross-origin API calls to `{region}.ng.msg.teams.microsoft.com`, paginating through all messages.
+1. **Primary: REST API** — `worker-hook.js` reads the MSAL IC3 Bearer JWT from `localStorage` (keys matching `*accesstoken*ic3.teams.office.com*`) and the API region from the SKYPE-TOKEN discovery entry. These are bridged to the content script via `window.postMessage`, stored in `worker-store.ts`, and passed to `api-client.ts`. The background service worker (`background.js`) makes the actual cross-origin API calls to `{region}.ng.msg.teams.microsoft.com`, paginating through all messages. If the background worker is unavailable, a direct fetch fallback makes the API calls from the content script using the extension's `host_permissions`.
+
+   For **channel conversations** (IDs ending in `@thread.tacv2` or `@thread.skype`), the API returns all messages — root posts and replies — in a flat list. The `api-client.ts` module detects channel conversations, groups messages by thread using the `conversationLink` field's `;messageid=` parameter, places root posts before their replies, and marks each message with `threadId` and `isReply` flags for the renderers.
 
 2. **Fallback: Scroll-harvesting** — If the API path fails (no token, no conversation ID, API error), `history.ts` falls back to DOM scrolling: it scrolls the chat upward, captures visible message snapshots, and accumulates them until reaching the top.
 

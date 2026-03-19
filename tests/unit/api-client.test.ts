@@ -502,4 +502,163 @@ describe("convertApiMessagesToSnapshots", () => {
 
     assert.equal(snapshots[0].reactions[0].actors[0], "8:orgid:user-no-name");
   });
+
+  // ── Channel thread grouping ───────────────────────────────────────────────
+
+  it("groups channel messages by thread with root posts before replies", () => {
+    const snapshots = convertApiMessagesToSnapshots([
+      // Newest first (API order) — reply to thread 100, then root of thread 200, then root of thread 100
+      {
+        id: "300",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Charlie",
+        content: "Reply to thread 100",
+        composetime: "2026-03-19T03:00:00.000Z",
+        conversationLink: "https://apac.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:abc@thread.tacv2;messageid=100"
+      },
+      {
+        id: "200",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Bob",
+        content: "Root of thread 200",
+        composetime: "2026-03-19T02:00:00.000Z",
+        conversationLink: "https://apac.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:abc@thread.tacv2;messageid=200"
+      },
+      {
+        id: "100",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Alice",
+        content: "Root of thread 100",
+        composetime: "2026-03-19T01:00:00.000Z",
+        conversationLink: "https://apac.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:abc@thread.tacv2;messageid=100"
+      }
+    ]);
+
+    // Thread 100 (root) should come first (oldest root), then its reply, then thread 200
+    assert.equal(snapshots.length, 3);
+    assert.equal(snapshots[0].id, "100"); // root of thread 100
+    assert.equal(snapshots[0].isReply, false);
+    assert.equal(snapshots[0].threadId, "100");
+    assert.equal(snapshots[1].id, "300"); // reply to thread 100
+    assert.equal(snapshots[1].isReply, true);
+    assert.equal(snapshots[1].threadId, "100");
+    assert.equal(snapshots[2].id, "200"); // root of thread 200
+    assert.equal(snapshots[2].isReply, false);
+    assert.equal(snapshots[2].threadId, "200");
+  });
+
+  it("does not set threadId or isReply for DM messages without conversationLink", () => {
+    const snapshots = convertApiMessagesToSnapshots([
+      {
+        id: "1",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Alice",
+        content: "Hello",
+        composetime: "2026-03-19T01:00:00.000Z"
+      },
+      {
+        id: "2",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Bob",
+        content: "Hi",
+        composetime: "2026-03-19T02:00:00.000Z"
+      }
+    ]);
+
+    // DM messages: chronological order, no thread metadata
+    assert.equal(snapshots.length, 2);
+    assert.equal(snapshots[0].id, "2"); // reversed to chronological (newest-first → oldest-first)
+    assert.equal(snapshots[0].threadId, undefined);
+    assert.equal(snapshots[0].isReply, undefined);
+  });
+
+  it("sorts replies within a thread chronologically", () => {
+    const snapshots = convertApiMessagesToSnapshots([
+      // API returns newest first
+      {
+        id: "400",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Dave",
+        content: "Late reply",
+        composetime: "2026-03-19T04:00:00.000Z",
+        conversationLink: "https://x.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:ch@thread.tacv2;messageid=100"
+      },
+      {
+        id: "200",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Bob",
+        content: "Early reply",
+        composetime: "2026-03-19T02:00:00.000Z",
+        conversationLink: "https://x.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:ch@thread.tacv2;messageid=100"
+      },
+      {
+        id: "100",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Alice",
+        content: "Root post",
+        composetime: "2026-03-19T01:00:00.000Z",
+        conversationLink: "https://x.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:ch@thread.tacv2;messageid=100"
+      }
+    ]);
+
+    assert.equal(snapshots[0].id, "100"); // root
+    assert.equal(snapshots[1].id, "200"); // early reply
+    assert.equal(snapshots[2].id, "400"); // late reply
+  });
+
+  it("handles channel messages where root post is missing from response", () => {
+    const snapshots = convertApiMessagesToSnapshots([
+      {
+        id: "300",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Charlie",
+        content: "Reply without root",
+        composetime: "2026-03-19T03:00:00.000Z",
+        conversationLink: "https://x.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:ch@thread.tacv2;messageid=100"
+      }
+    ]);
+
+    // Should still work — reply is present even though root isn't
+    assert.equal(snapshots.length, 1);
+    assert.equal(snapshots[0].id, "300");
+    assert.equal(snapshots[0].isReply, true);
+    assert.equal(snapshots[0].threadId, "100");
+  });
+
+  it("assigns sequential indexes after thread grouping", () => {
+    const snapshots = convertApiMessagesToSnapshots([
+      {
+        id: "300",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Charlie",
+        content: "Reply",
+        composetime: "2026-03-19T03:00:00.000Z",
+        conversationLink: "https://x.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:ch@thread.tacv2;messageid=100"
+      },
+      {
+        id: "100",
+        type: "Message",
+        messagetype: "Text",
+        imdisplayname: "Alice",
+        content: "Root",
+        composetime: "2026-03-19T01:00:00.000Z",
+        conversationLink: "https://x.ng.msg.teams.microsoft.com/v1/users/ME/conversations/19:ch@thread.tacv2;messageid=100"
+      }
+    ]);
+
+    assert.equal(snapshots[0].index, 0);
+    assert.equal(snapshots[0].captureOrder, 0);
+    assert.equal(snapshots[1].index, 1);
+    assert.equal(snapshots[1].captureOrder, 1);
+  });
 });

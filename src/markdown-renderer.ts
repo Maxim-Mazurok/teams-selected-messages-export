@@ -201,7 +201,12 @@ export function renderMarkdown(
       headingBits.push(message.timeLabel || message.dateTime);
     }
 
-    lines.push(`## ${headingBits.join(" | ")}`);
+    if (message.isReply) {
+      // Thread reply: use h3 with reply prefix
+      lines.push(`### ↳ ${headingBits.join(" | ")}`);
+    } else {
+      lines.push(`## ${headingBits.join(" | ")}`);
+    }
     lines.push("");
     if (message.subject) {
       lines.push(`**${message.subject}**`);
