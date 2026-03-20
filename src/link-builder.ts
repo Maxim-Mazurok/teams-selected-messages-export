@@ -7,13 +7,8 @@ const TEAMS_BASE_URL = "https://teams.microsoft.com";
 const CHANNEL_PATTERN = /@thread\.(tacv2|skype)$/i;
 const CHAT_CONTEXT = encodeURIComponent(JSON.stringify({ contextType: "chat" }));
 
-/**
- * Strip DOM-specific prefixes from message IDs.
- * DOM extraction produces IDs like "content-1773975961503" or "timestamp-1773975961503",
- * but Teams deep links use the bare numeric ID.
- */
 function normalizeMessageIdForLink(messageId: string): string {
-  return messageId.replace(/^(content-|timestamp-)/, "");
+  return messageId.replace(/^(content-|timestamp-|reply-chain-summary-|message-body-)/, "");
 }
 
 export function isChannelConversationId(conversationId: string): boolean {
@@ -33,7 +28,7 @@ export function buildLinkContext(): LinkContext | null {
     conversationId,
     isChannel,
     tenantId: getCapturedTenantId(),
-    groupId: isChannel ? getCapturedGroupId() : null,
+    groupId: isChannel ? (getCapturedGroupId() ?? extractGroupIdFromDom(conversationId)) : null,
     teamName: isChannel ? extractTeamName() : null,
     channelName: isChannel ? title : null
   };
@@ -93,27 +88,63 @@ export function buildMessageLink(
 
 /**
  * Attempt to extract the team name from the DOM sidebar.
- * Channels are nested under their team in the sidebar tree.
+ * In the new Teams client, channels are level-3 treeitems inside a [role="group"]
+ * whose parent is a level-2 treeitem with data-testid="list-item-teams-and-channels".
+ * The team name is the first text child of that parent treeitem.
  */
 function extractTeamName(): string | null {
-  // Look for the active channel's parent team in sidebar tree
   const activeChannel = document.querySelector(
     '[role="treeitem"][tabindex="0"][data-testid*="channel-list-item-19:"]'
   );
   if (activeChannel) {
-    // Walk up to find the team-level treeitem
-    let current: Element | null = activeChannel.parentElement;
-    for (let depth = 0; depth < 10 && current; depth++) {
-      if (
-        current.getAttribute("role") === "treeitem" &&
-        !current.getAttribute("data-testid")?.includes("channel-list-item")
-      ) {
-        const teamNameElement = current.querySelector('[data-tid="team-name"]');
-        if (teamNameElement?.textContent?.trim()) {
-          return teamNameElement.textContent.trim();
-        }
+    // Walk up through [role="group"] to the parent team treeitem
+    const group = activeChannel.closest('[role="group"]');
+    const teamTreeitem = group?.parentElement;
+    if (
+      teamTreeitem?.getAttribute("role") === "treeitem" &&
+      teamTreeitem.getAttribute("data-testid") === "list-item-teams-and-channels"
+    ) {
+      const firstChild = teamTreeitem.children[0];
+      const teamName = firstChild?.textContent?.trim();
+      if (teamName) {
+        return teamName;
       }
-      current = current.parentElement;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract the M365 Group ID (Team ID) from DOM elements such as Praise or
+ * other adaptive card links that embed groupId in their href.
+ */
+function extractGroupIdFromDom(conversationId: string): string | null {
+  // Links in channel messages (e.g., Praise cards) contain groupId as a URL parameter
+  const channelIdEncoded = encodeURIComponent(conversationId);
+  const links = document.querySelectorAll<HTMLAnchorElement>(`a[href*="groupId"]`);
+  for (const link of links) {
+    const href = link.getAttribute("href") || "";
+    // Only trust links that reference the current channel
+    if (!href.includes(conversationId) && !href.includes(channelIdEncoded)) {
+      continue;
+    }
+    const match = href.match(/groupId[=:]([a-f0-9-]{36})/i) ||
+      href.match(/groupId%3D([a-f0-9-]{36})/i) ||
+      href.match(/groupId%253D([a-f0-9-]{36})/i);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  // Broader fallback: any link with groupId (even without channel reference)
+  for (const link of links) {
+    const href = link.getAttribute("href") || "";
+    const match = href.match(/groupId[=:]([a-f0-9-]{36})/i) ||
+      href.match(/groupId%3D([a-f0-9-]{36})/i) ||
+      href.match(/groupId%253D([a-f0-9-]{36})/i);
+    if (match) {
+      return match[1];
     }
   }
 
