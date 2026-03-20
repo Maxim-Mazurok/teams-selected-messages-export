@@ -143,6 +143,7 @@ export interface ExporterState {
   themeMediaQuery: MediaQueryList | null;
   refreshTimer: number | null;
   conversationPollTimer: number | null;
+  messageScanTimer: number | null;
   startupTimers: number[];
   selectStartHandler: ((event: Event) => void) | null;
   resizeHandler: (() => void) | null;

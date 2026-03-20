@@ -4,6 +4,7 @@ import {
   SELECTED_CLASS,
   CHECKBOX_CLASS,
   CONVERSATION_POLL_MS,
+  MESSAGE_SCAN_INTERVAL_MS,
   INSTANCE_KEY
 } from "./constants.js";
 import { state, callbacks } from "./state.js";
@@ -108,6 +109,44 @@ export function ensureGlobalHandlers(): void {
         callbacks.checkConversationState();
       }
     }) as () => void, CONVERSATION_POLL_MS);
+  }
+}
+
+/**
+ * Start a periodic interval that scans for undecorated message rows and
+ * triggers a refresh when new messages appear (e.g. after scrolling up to
+ * load history).  Runs only while the panel is open or selection mode is active.
+ */
+export function startMessageScan(): void {
+  if (state.messageScanTimer) {
+    return;
+  }
+
+  state.messageScanTimer = window.setInterval(() => {
+    if (document.visibilityState === "hidden") {
+      return;
+    }
+
+    const undecoratedRows = document.querySelectorAll(
+      `[data-tid="chat-pane-item"]:not(.${MESSAGE_CLASS}), ` +
+      `[data-tid="channel-pane-message"]:not(.${MESSAGE_CLASS}), ` +
+      `[data-tid="channel-replies-pane-message"]:not(.${MESSAGE_CLASS})`
+    );
+
+    const hasNewMessages = Array.from(undecoratedRows).some(
+      (row) => (row.textContent || "").trim().length >= 4
+    );
+
+    if (hasNewMessages) {
+      callbacks.refreshMessages();
+    }
+  }, MESSAGE_SCAN_INTERVAL_MS);
+}
+
+export function stopMessageScan(): void {
+  if (state.messageScanTimer) {
+    window.clearInterval(state.messageScanTimer);
+    state.messageScanTimer = null;
   }
 }
 
@@ -240,6 +279,8 @@ export function destroy(
     window.clearInterval(state.conversationPollTimer);
     state.conversationPollTimer = null;
   }
+
+  stopMessageScan();
 
   if (state.themeMediaQuery) {
     state.themeMediaQuery = null;

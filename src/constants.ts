@@ -61,6 +61,7 @@ export const HEADER_SLOT_SELECTORS = [
 
 export const FALLBACK_DOCK_TOP = 10;
 export const FALLBACK_DOCK_RIGHT = 200;
+export const MESSAGE_SCAN_INTERVAL_MS = 400;
 export const CONVERSATION_POLL_MS = 750;
 
 export const CONTENT_PRUNE_SELECTOR = [

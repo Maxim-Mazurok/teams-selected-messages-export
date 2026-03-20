@@ -36,6 +36,8 @@ import {
   observeDom,
   scheduleStartupStabilization,
   clearStartupTimers,
+  startMessageScan,
+  stopMessageScan,
   destroy
 } from "./lifecycle.js";
 import { initWorkerStore, getWorkerStats, isWorkerHookInstalled } from "./worker-store.js";
@@ -313,6 +315,12 @@ function setActive(active: boolean): void {
     refreshMessages();
   }
 
+  if (active || state.panelOpen) {
+    startMessageScan();
+  } else {
+    stopMessageScan();
+  }
+
   updateToolbar();
   updateSelectionUi();
 }
@@ -322,11 +330,12 @@ function setPanelOpen(open: boolean): void {
 
   if (open) {
     syncDockPosition();
-    if (!state.messages.length) {
-      refreshMessages();
-    }
+    refreshMessages();
+    startMessageScan();
   } else if (state.active) {
     setActive(false);
+  } else {
+    stopMessageScan();
   }
 
   updateToolbar();

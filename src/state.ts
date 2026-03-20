@@ -12,6 +12,7 @@ export const state: ExporterState = {
   themeMediaQuery: null,
   refreshTimer: null,
   conversationPollTimer: null,
+  messageScanTimer: null,
   startupTimers: [],
   selectStartHandler: null,
   resizeHandler: null,
