@@ -1,6 +1,7 @@
-import type { QuotedReply, ReactionInfo, MessageSnapshot } from "./types.js";
+import type { QuotedReply, ReactionInfo, MessageSnapshot, ExportOptions, LinkContext } from "./types.js";
 import { escapeHtml } from "./utilities.js";
 import { formatQuotedReplyLabel } from "./markdown-renderer.js";
+import { buildConversationLink, buildMessageLink } from "./link-builder.js";
 
 function renderQuotedReplyHtml(quote: QuotedReply | null): string {
   if (!quote?.text) {
@@ -38,13 +39,18 @@ function renderReactionsHtml(reactions: ReactionInfo[] | undefined): string {
 
 export function renderHtmlDocument(
   messages: MessageSnapshot[],
-  meta: { title: string; sourceUrl: string; exportedAt: string; scope?: string }
+  meta: { title: string; sourceUrl: string; exportedAt: string; scope?: string; options?: ExportOptions; linkContext?: LinkContext | null }
 ): string {
   const scope = meta.scope || "selection";
+  const includeLinks = meta.options?.includeLinks === true && meta.linkContext;
   const summaryMessage =
     scope === "full-chat"
       ? `${messages.length} message${messages.length === 1 ? "" : "s"} captured from the full chat history.`
       : `${messages.length} message${messages.length === 1 ? "" : "s"} selected.`;
+
+  const conversationLinkHtml = includeLinks && meta.linkContext
+    ? `\n        <p><a href="${escapeHtml(buildConversationLink(meta.linkContext))}" class="teams-link">Open in Teams ↗</a></p>`
+    : "";
 
   const articles = messages
     .map((message) => {
@@ -54,10 +60,13 @@ export function renderHtmlDocument(
       const reactionsHtml = renderReactionsHtml(message.reactions);
       const subjectHtml = message.subject ? `<h3>${escapeHtml(message.subject)}</h3>` : "";
       const replyClass = message.isReply ? " thread-reply" : "";
+      const messageLinkHtml = includeLinks && meta.linkContext
+        ? ` <a href="${escapeHtml(buildMessageLink(meta.linkContext, message))}" class="message-link" title="Open in Teams">↗</a>`
+        : "";
       return `
           <article class="message${replyClass}">
             <header>
-              <strong>${message.isReply ? "↳ " : ""}${safeAuthor}</strong>
+              <strong>${message.isReply ? "↳ " : ""}${safeAuthor}${messageLinkHtml}</strong>
               <time datetime="${escapeHtml(message.dateTime || "")}">${safeTime}</time>
             </header>
             <section class="body">${subjectHtml}${quoteHtml}${message.html || `<p>${escapeHtml(message.plainText)}</p>`}${reactionsHtml}</section>
@@ -160,6 +169,30 @@ export function renderHtmlDocument(
         border-left: 3px solid #0d61d8;
         background: #f9fbfe;
       }
+      .teams-link {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: #0d61d8;
+        color: #fff;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .teams-link:hover {
+        background: #0a4fa8;
+      }
+      .message-link {
+        color: #0d61d8;
+        text-decoration: none;
+        font-size: 12px;
+        margin-left: 6px;
+        opacity: 0.6;
+      }
+      .message-link:hover {
+        opacity: 1;
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
@@ -168,7 +201,7 @@ export function renderHtmlDocument(
         <h1>${escapeHtml(meta.title)}</h1>
         <p>Exported from Microsoft Teams on ${escapeHtml(meta.exportedAt)}.</p>
         <p>${escapeHtml(summaryMessage)}</p>
-        <p>Source: <a href="${escapeHtml(meta.sourceUrl)}">${escapeHtml(meta.sourceUrl)}</a></p>
+        <p>Source: <a href="${escapeHtml(meta.sourceUrl)}">${escapeHtml(meta.sourceUrl)}</a></p>${conversationLinkHtml}
       </section>
       ${articles}
     </main>

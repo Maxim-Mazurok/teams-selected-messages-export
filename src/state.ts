@@ -30,7 +30,8 @@ export const state: ExporterState = {
   theme: "light",
   conversationKey: "",
   lastExport: null,
-  lastPointerSelection: null
+  lastPointerSelection: null,
+  exportOptions: { includeLinks: false }
 };
 
 export const callbacks: ExporterCallbacks = {

@@ -111,6 +111,19 @@ export interface ExportMeta {
   sourceUrl?: string;
 }
 
+export interface ExportOptions {
+  includeLinks: boolean;
+}
+
+export interface LinkContext {
+  conversationId: string;
+  isChannel: boolean;
+  tenantId: string | null;
+  groupId: string | null;
+  teamName: string | null;
+  channelName: string | null;
+}
+
 export interface RgbColor {
   red: number;
   green: number;
@@ -149,6 +162,7 @@ export interface ExporterState {
   conversationKey: string;
   lastExport: ExportPayload | null;
   lastPointerSelection: { id: string; at: number } | null;
+  exportOptions: ExportOptions;
 }
 
 export interface ExporterCallbacks {

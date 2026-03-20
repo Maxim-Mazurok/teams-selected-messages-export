@@ -39,6 +39,7 @@ import {
   destroy
 } from "./lifecycle.js";
 import { initWorkerStore, getWorkerStats, isWorkerHookInstalled } from "./worker-store.js";
+import { buildLinkContext } from "./link-builder.js";
 
 /* ------------------------------------------------------------------ */
 /*  Orchestration functions                                           */
@@ -347,8 +348,9 @@ function exportSelection(format: string): ExportPayload | null {
     return null;
   }
 
+  const linkContext = state.exportOptions.includeLinks ? buildLinkContext() : null;
   const payload = commitExportPayload(
-    createExportPayload(format, messages, { scope: "selection" })
+    createExportPayload(format, messages, { scope: "selection" }, state.exportOptions, linkContext)
   );
   state.lastExport = payload;
   return payload;
@@ -360,11 +362,14 @@ async function copyMarkdown(): Promise<boolean> {
     return false;
   }
 
+  const linkContext = state.exportOptions.includeLinks ? buildLinkContext() : null;
   const markdown = renderMarkdown(messages, {
     title: getConversationTitle(),
     sourceUrl: location.href,
     exportedAt: new Date().toISOString(),
-    scope: "selection"
+    scope: "selection",
+    options: state.exportOptions,
+    linkContext
   });
   await writeClipboardText(markdown);
   state.lastExport = {
@@ -427,13 +432,17 @@ function registerApi(): void {
       renderHtmlDocument(getSelectedMessages().map(snapshotMessageRecord), {
         title: getConversationTitle(),
         sourceUrl: location.href,
-        exportedAt: new Date().toISOString()
+        exportedAt: new Date().toISOString(),
+        options: state.exportOptions,
+        linkContext: state.exportOptions.includeLinks ? buildLinkContext() : null
       }),
     renderMarkdown: () =>
       renderMarkdown(getSelectedMessages().map(snapshotMessageRecord), {
         title: getConversationTitle(),
         sourceUrl: location.href,
-        exportedAt: new Date().toISOString()
+        exportedAt: new Date().toISOString(),
+        options: state.exportOptions,
+        linkContext: state.exportOptions.includeLinks ? buildLinkContext() : null
       }),
     getSelectedMessages: () =>
       getSelectedMessages().map(snapshotMessageRecord),

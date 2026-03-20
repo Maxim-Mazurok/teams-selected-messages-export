@@ -260,6 +260,63 @@
     return null;
   }
 
+  /**
+   * Decode the payload section of a JWT and extract the tenant ID (tid claim).
+   */
+  function extractTenantIdFromJwt(jwt) {
+    try {
+      var parts = jwt.split(".");
+      if (parts.length < 2) return null;
+      // Convert base64url to base64
+      var base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      var decoded = atob(base64);
+      var parsed = JSON.parse(decoded);
+      return parsed.tid || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Try to find the M365 Group ID (Team ID) from localStorage entries.
+   * Teams stores team/channel metadata in various cache keys.
+   */
+  function extractGroupIdFromLocalStorage() {
+    try {
+      // Look for team-channel mapping entries that reference the current channel
+      for (var i = 0; i < localStorage.length; i++) {
+        var storageKey = localStorage.key(i);
+        if (!storageKey) continue;
+
+        // Teams stores team roster / channel metadata under keys containing "team" or "channel"
+        // Pattern: keys with "ts.teams" or containing UUIDs with team context
+        if (storageKey.indexOf("ts.teamChannelMap") !== -1 ||
+            storageKey.indexOf("ts.teams.teamsList") !== -1) {
+          var raw = localStorage.getItem(storageKey);
+          var parsed = tryParseJson(raw);
+          if (parsed && typeof parsed === "object") {
+            // Extract group IDs from team list data
+            var groupIds = [];
+            var items = Array.isArray(parsed) ? parsed : (parsed.item ? [parsed.item] : [parsed]);
+            for (var j = 0; j < items.length; j++) {
+              var item = items[j];
+              if (item && item.teamId) groupIds.push(item.teamId);
+              if (item && item.groupId) groupIds.push(item.groupId);
+              if (item && item.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)) {
+                groupIds.push(item.id);
+              }
+            }
+            if (groupIds.length > 0) {
+              postBridge("group-ids", { groupIds: groupIds });
+            }
+          }
+        }
+      }
+    } catch {
+      // Never crash the page
+    }
+  }
+
   function readTokenFromLocalStorage() {
     try {
       // Step 1: Find the MSAL IC3 Bearer token
@@ -302,8 +359,12 @@
         token: ic3Token,
         region: region,
         tokenType: "bearer",
-        source: "localStorage-msal"
+        source: "localStorage-msal",
+        tenantId: extractTenantIdFromJwt(ic3Token)
       });
+
+      // Also try to extract group IDs for channel links
+      extractGroupIdFromLocalStorage();
     } catch {
       // Never crash the page
     }

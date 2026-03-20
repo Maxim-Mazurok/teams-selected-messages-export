@@ -490,8 +490,10 @@ export async function exportFullHistory(
     const { createExportPayload, commitExportPayload } = await import(
       "./export-helpers.js"
     );
+    const { buildLinkContext } = await import("./link-builder.js");
+    const linkContext = state.exportOptions?.includeLinks ? buildLinkContext() : null;
     const payload = commitExportPayload(
-      createExportPayload(format, messages, { scope: "full-chat" }),
+      createExportPayload(format, messages, { scope: "full-chat" }, state.exportOptions, linkContext),
       options
     );
     state.lastExport = payload;

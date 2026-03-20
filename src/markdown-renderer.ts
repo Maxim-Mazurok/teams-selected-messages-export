@@ -1,4 +1,4 @@
-import type { Strategy, QuotedReply, ReactionInfo, MessageSnapshot } from "./types.js";
+import type { Strategy, QuotedReply, ReactionInfo, MessageSnapshot, ExportOptions, LinkContext } from "./types.js";
 import { normalizeText, inlineMarkdown, isMentionElement } from "./utilities.js";
 import {
   formatMentionLabel,
@@ -6,6 +6,7 @@ import {
   isDecorativeImage,
   getPreparedContentClone
 } from "./content-extraction.js";
+import { buildConversationLink, buildMessageLink } from "./link-builder.js";
 
 export function formatQuotedReplyLabel(quote: QuotedReply): string {
   const parts: string[] = [];
@@ -178,22 +179,28 @@ export function elementToMarkdown(
 
 export function renderMarkdown(
   messages: MessageSnapshot[],
-  meta: { title: string; sourceUrl: string; exportedAt: string; scope?: string }
+  meta: { title: string; sourceUrl: string; exportedAt: string; scope?: string; options?: ExportOptions; linkContext?: LinkContext | null }
 ): string {
   const scope = meta.scope || "selection";
   const countLabel =
     scope === "full-chat"
       ? `Full chat history messages: ${messages.length}`
       : `Selected messages: ${messages.length}`;
+  const includeLinks = meta.options?.includeLinks === true && meta.linkContext;
 
   const lines = [
     `# ${meta.title}`,
     "",
     `- Exported from Microsoft Teams on ${meta.exportedAt}`,
-    `- Source URL: ${meta.sourceUrl}`,
-    `- ${countLabel}`,
-    ""
+    `- Source URL: ${meta.sourceUrl}`
   ];
+
+  if (includeLinks && meta.linkContext) {
+    const conversationLink = buildConversationLink(meta.linkContext);
+    lines.push(`- [Open in Teams](${conversationLink})`);
+  }
+
+  lines.push(`- ${countLabel}`, "");
 
   messages.forEach((message) => {
     const headingBits = [message.author];
@@ -201,11 +208,18 @@ export function renderMarkdown(
       headingBits.push(message.timeLabel || message.dateTime);
     }
 
+    const headingText = headingBits.join(" | ");
+    let linkSuffix = "";
+    if (includeLinks && meta.linkContext) {
+      const messageLink = buildMessageLink(meta.linkContext, message);
+      linkSuffix = ` [↗](${messageLink})`;
+    }
+
     if (message.isReply) {
       // Thread reply: use h3 with reply prefix
-      lines.push(`### ↳ ${headingBits.join(" | ")}`);
+      lines.push(`### ↳ ${headingText}${linkSuffix}`);
     } else {
-      lines.push(`## ${headingBits.join(" | ")}`);
+      lines.push(`## ${headingText}${linkSuffix}`);
     }
     lines.push("");
     if (message.subject) {

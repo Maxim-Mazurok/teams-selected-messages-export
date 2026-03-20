@@ -13,6 +13,7 @@ import {
   COUNT_CLASS,
   ACTION_GRID_CLASS,
   ACTIVE_CLASS,
+  OPTIONS_ROW_CLASS,
   HEADER_SLOT_SELECTORS,
   FALLBACK_DOCK_TOP,
   FALLBACK_DOCK_RIGHT
@@ -166,7 +167,28 @@ export function createToolbar(actions: ToolbarActions): ToolbarElements {
     exportFullChatHtmlButton
   );
 
-  toolbar.append(header, statusRow, progress, actionGrid);
+  const optionsRow = document.createElement("div");
+  optionsRow.className = OPTIONS_ROW_CLASS;
+
+  const includeLinksToggle = document.createElement("label");
+  includeLinksToggle.className = TOGGLE_CLASS;
+
+  const includeLinksInput = document.createElement("input");
+  includeLinksInput.type = "checkbox";
+  includeLinksInput.dataset.role = "include-links-toggle";
+  includeLinksInput.checked = state.exportOptions.includeLinks;
+
+  const includeLinksText = document.createElement("span");
+  includeLinksText.textContent = "Include message links";
+
+  includeLinksToggle.append(includeLinksInput, includeLinksText);
+  optionsRow.append(includeLinksToggle);
+
+  includeLinksInput.addEventListener("change", () => {
+    state.exportOptions.includeLinks = includeLinksInput.checked;
+  });
+
+  toolbar.append(header, statusRow, optionsRow, progress, actionGrid);
 
   const launcherRow = document.createElement("div");
   launcherRow.className = LAUNCHER_ROW_CLASS;

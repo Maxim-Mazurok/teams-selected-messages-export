@@ -33,6 +33,12 @@ let capturedSkypeToken: string | null = null;
 let capturedRegion: string | null = null;
 let capturedTokenType: "skypetoken" | "bearer" = "skypetoken";
 
+/** Tenant ID extracted from the JWT access token. */
+let capturedTenantId: string | null = null;
+
+/** M365 Group IDs (Team IDs) extracted from localStorage. */
+const capturedGroupIds: string[] = [];
+
 /** Conversation ID extracted from worker message batches. */
 let lastSeenConversationId: string | null = null;
 
@@ -86,6 +92,18 @@ export function getCapturedTokenType(): "skypetoken" | "bearer" {
 
 export function getLastSeenConversationId(): string | null {
   return lastSeenConversationId;
+}
+
+export function getCapturedTenantId(): string | null {
+  return capturedTenantId;
+}
+
+/**
+ * Get the best-guess Group ID (Team ID) for the current channel.
+ * Returns the first captured group ID, or null if none available.
+ */
+export function getCapturedGroupId(): string | null {
+  return capturedGroupIds.length > 0 ? capturedGroupIds[0] : null;
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -165,7 +183,7 @@ function handleMembers(payload: { members: Array<{ id: string; displayName: stri
   }
 }
 
-function handleAuthToken(payload: { token: string; region: string | null; tokenType?: string; source: string }): void {
+function handleAuthToken(payload: { token: string; region: string | null; tokenType?: string; source: string; tenantId?: string | null }): void {
   if (!payload.token || payload.token.length < 100) return;
 
   const isNew = capturedSkypeToken !== payload.token;
@@ -176,12 +194,27 @@ function handleAuthToken(payload: { token: string; region: string | null; tokenT
   if (payload.tokenType === "bearer") {
     capturedTokenType = "bearer";
   }
+  if (payload.tenantId) {
+    capturedTenantId = payload.tenantId;
+  }
 
   if (isNew) {
     log(
       `[worker-store] auth token captured (type: ${capturedTokenType}, region: ${capturedRegion ?? "unknown"}, ` +
-        `source: ${payload.source}, length: ${payload.token.length})`
+        `tenant: ${capturedTenantId ?? "unknown"}, source: ${payload.source}, length: ${payload.token.length})`
     );
+  }
+}
+
+function handleGroupIds(payload: { groupIds: string[] }): void {
+  if (!Array.isArray(payload.groupIds)) return;
+  for (const groupId of payload.groupIds) {
+    if (groupId && !capturedGroupIds.includes(groupId)) {
+      capturedGroupIds.push(groupId);
+    }
+  }
+  if (capturedGroupIds.length > 0) {
+    log(`[worker-store] captured ${capturedGroupIds.length} group ID(s)`);
   }
 }
 
@@ -206,7 +239,9 @@ function onWindowMessage(event: MessageEvent): void {
     } else if (type === "members") {
       handleMembers(payload as Parameters<typeof handleMembers>[0]);
     } else if (type === "auth-token") {
-      handleAuthToken(payload as { token: string; region: string | null; tokenType?: string; source: string });
+      handleAuthToken(payload as { token: string; region: string | null; tokenType?: string; source: string; tenantId?: string | null });
+    } else if (type === "group-ids") {
+      handleGroupIds(payload as { groupIds: string[] });
     }
   } catch (error) {
     log(`[worker-store] error processing bridge event "${type}":`, error);

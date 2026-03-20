@@ -21,6 +21,7 @@ export const ACTIVE_CLASS = `${PANEL_CLASS}--active`;
 export const CHECKBOX_CLASS = `${UI_CLASS}__checkbox`;
 export const HIDDEN_CHECKBOX_CLASS = `${CHECKBOX_CLASS}--hidden`;
 export const BODY_ACTIVE_CLASS = `${UI_CLASS}--selection-active`;
+export const OPTIONS_ROW_CLASS = `${UI_CLASS}__options-row`;
 
 export const RUNWAY_SELECTOR = [
   '[data-tid="message-pane-list-runway"]',

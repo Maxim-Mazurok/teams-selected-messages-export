@@ -17,6 +17,7 @@ import {
   CHECKBOX_CLASS,
   HIDDEN_CHECKBOX_CLASS,
   BODY_ACTIVE_CLASS,
+  OPTIONS_ROW_CLASS,
   RUNWAY_SELECTOR
 } from "./constants.js";
 
@@ -218,6 +219,16 @@ export function generateStylesheet(): string {
       border-radius: 14px;
       background: var(--tsm-panel-surface-soft);
       border: 1px solid var(--tsm-panel-border-soft);
+    }
+
+    .${OPTIONS_ROW_CLASS} {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border-radius: 14px;
+      background: var(--tsm-panel-surface-muted);
     }
 
     .${PROGRESS_CLASS} {

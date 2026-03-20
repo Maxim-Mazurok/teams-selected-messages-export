@@ -1,4 +1,4 @@
-import type { MessageSnapshot, ExportPayload, ExportMeta } from "./types.js";
+import type { MessageSnapshot, ExportPayload, ExportMeta, ExportOptions, LinkContext } from "./types.js";
 import { filenameSafe } from "./utilities.js";
 import { renderMarkdown } from "./markdown-renderer.js";
 import { renderHtmlDocument } from "./html-renderer.js";
@@ -67,7 +67,9 @@ export async function writeClipboardText(text: string): Promise<boolean> {
 export function createExportPayload(
   format: string,
   messages: MessageSnapshot[],
-  meta: ExportMeta = {}
+  meta: ExportMeta = {},
+  options?: ExportOptions,
+  linkContext?: LinkContext | null
 ): ExportPayload {
   const scope = meta.scope || "selection";
   const title = meta.title || getConversationTitle();
@@ -77,7 +79,7 @@ export function createExportPayload(
   const timestampPart = new Date().toISOString().replace(/[:.]/g, "-");
   const scopeSuffix = getExportScopeSuffix(scope);
 
-  const renderMeta = { title, sourceUrl, exportedAt, scope };
+  const renderMeta = { title, sourceUrl, exportedAt, scope, options, linkContext };
 
   if (format === "html") {
     return {
