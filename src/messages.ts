@@ -15,6 +15,47 @@ import { getMessageId, isLikelyMessageRow } from "./strategy.js";
 import { log } from "./state.js";
 import { getWorkerMessage, resolveUserId } from "./worker-store.js";
 
+const THREAD_ROOT_ID_PATTERN = /^(?:reply-chain-summary-|content-|timestamp-)(\d+)$/;
+
+/**
+ * For a channel reply element, walk up the DOM to the parent
+ * `channel-pane-message` root post and extract its thread root message ID.
+ * Returns `{ threadId, isReply }` when the element is a reply, or
+ * an empty object for root posts / non-channel messages.
+ */
+function extractThreadInfo(
+  element: HTMLElement,
+  messageId: string
+): { threadId?: string; isReply?: boolean } {
+  const responseSurface = element.closest('[data-tid="response-surface"]');
+  if (!responseSurface) {
+    return {};
+  }
+
+  const parentPost = responseSurface.closest('[data-tid="channel-pane-message"]');
+  if (!parentPost) {
+    return {};
+  }
+
+  const parentId = parentPost.id;
+  const match = parentId.match(THREAD_ROOT_ID_PATTERN);
+  if (!match) {
+    return {};
+  }
+
+  const threadRootId = match[1];
+  const normalizedMessageId = messageId.replace(
+    /^(content-|timestamp-|reply-chain-summary-|message-body-)/,
+    ""
+  );
+
+  if (normalizedMessageId === threadRootId) {
+    return {};
+  }
+
+  return { threadId: threadRootId, isReply: true };
+}
+
 /**
  * Enrich DOM-extracted reactions with actor names resolved from worker data.
  *
@@ -71,6 +112,8 @@ export function buildMessageRecord(
   const messageId = getMessageId(element, index);
   const domReactions = isChannelPost(element) ? extractPostReactions(element) : extractReactions(element);
 
+  const threadInfo = extractThreadInfo(element, messageId);
+
   return {
     id: messageId,
     index,
@@ -83,7 +126,8 @@ export function buildMessageRecord(
     reactions: enrichReactionsFromWorker(messageId, domReactions),
     html: extractBodyHtml(element, strategy),
     markdown: elementToMarkdown(element, strategy, plainText),
-    plainText
+    plainText,
+    ...threadInfo
   };
 }
 

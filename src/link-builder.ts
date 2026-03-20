@@ -3,12 +3,28 @@ import { resolveConversationId } from "./api-client.js";
 import { getConversationTitle } from "./conversation.js";
 import { getCapturedTenantId, getCapturedGroupId } from "./worker-store.js";
 
-const TEAMS_BASE_URL = "https://teams.microsoft.com";
+const TEAMS_BASE_URL = "https://teams.cloud.microsoft";
 const CHANNEL_PATTERN = /@thread\.(tacv2|skype)$/i;
 const CHAT_CONTEXT = encodeURIComponent(JSON.stringify({ contextType: "chat" }));
 
 function normalizeMessageIdForLink(messageId: string): string {
   return messageId.replace(/^(content-|timestamp-|reply-chain-summary-|message-body-)/, "");
+}
+
+/**
+ * Encode a conversation ID for use in a URL path segment.
+ * Unlike encodeURIComponent, this preserves `:` and `@` which Teams expects unencoded.
+ */
+function encodeConversationIdForPath(conversationId: string): string {
+  return encodeURIComponent(conversationId).replace(/%3A/gi, ":").replace(/%40/gi, "@");
+}
+
+/**
+ * Serialize URLSearchParams using `%20` for spaces instead of `+`.
+ * Teams deep links expect percent-encoded spaces.
+ */
+function formatSearchParameters(parameters: URLSearchParams): string {
+  return parameters.toString().replace(/\+/g, "%20");
 }
 
 export function isChannelConversationId(conversationId: string): boolean {
@@ -36,7 +52,7 @@ export function buildLinkContext(): LinkContext | null {
 
 export function buildConversationLink(context: LinkContext): string {
   if (context.isChannel) {
-    const encodedConversationId = encodeURIComponent(context.conversationId);
+    const conversationIdPath = encodeConversationIdForPath(context.conversationId);
     const encodedChannelName = encodeURIComponent(context.channelName || "Channel");
     const parameters = new URLSearchParams();
     if (context.groupId) {
@@ -45,12 +61,12 @@ export function buildConversationLink(context: LinkContext): string {
     if (context.tenantId) {
       parameters.set("tenantId", context.tenantId);
     }
-    const query = parameters.toString();
-    return `${TEAMS_BASE_URL}/l/channel/${encodedConversationId}/${encodedChannelName}${query ? `?${query}` : ""}`;
+    const query = formatSearchParameters(parameters);
+    return `${TEAMS_BASE_URL}/l/channel/${conversationIdPath}/${encodedChannelName}${query ? `?${query}` : ""}`;
   }
 
-  const encodedConversationId = encodeURIComponent(context.conversationId);
-  return `${TEAMS_BASE_URL}/l/chat/${encodedConversationId}/conversations?context=${CHAT_CONTEXT}`;
+  const conversationIdPath = encodeConversationIdForPath(context.conversationId);
+  return `${TEAMS_BASE_URL}/l/chat/${conversationIdPath}/conversations?context=${CHAT_CONTEXT}`;
 }
 
 export function buildMessageLink(
@@ -58,7 +74,7 @@ export function buildMessageLink(
   message: MessageSnapshot
 ): string {
   const normalizedMessageId = normalizeMessageIdForLink(message.id);
-  const encodedConversationId = encodeURIComponent(context.conversationId);
+  const conversationIdPath = encodeConversationIdForPath(context.conversationId);
   const encodedMessageId = encodeURIComponent(normalizedMessageId);
 
   if (context.isChannel) {
@@ -80,10 +96,10 @@ export function buildMessageLink(
       parameters.set("channelName", context.channelName);
     }
     parameters.set("createdTime", normalizedMessageId);
-    return `${TEAMS_BASE_URL}/l/message/${encodedConversationId}/${encodedMessageId}?${parameters.toString()}`;
+    return `${TEAMS_BASE_URL}/l/message/${conversationIdPath}/${encodedMessageId}?${formatSearchParameters(parameters)}`;
   }
 
-  return `${TEAMS_BASE_URL}/l/message/${encodedConversationId}/${encodedMessageId}?context=${CHAT_CONTEXT}`;
+  return `${TEAMS_BASE_URL}/l/message/${conversationIdPath}/${encodedMessageId}?context=${CHAT_CONTEXT}`;
 }
 
 /**

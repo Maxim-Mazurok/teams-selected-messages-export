@@ -67,6 +67,8 @@ export interface MessageRecord {
   html: string;
   markdown: string;
   plainText: string;
+  threadId?: string;
+  isReply?: boolean;
 }
 
 export interface MessageSnapshot {
