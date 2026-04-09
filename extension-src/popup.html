@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <style>
     body {
-      width: 300px;
+      width: 340px;
       padding: 16px;
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -28,6 +28,14 @@
     a:hover {
       text-decoration: underline;
     }
+    .steps {
+      margin: 0 0 12px;
+      padding-left: 20px;
+      line-height: 1.6;
+    }
+    .steps li {
+      margin-bottom: 4px;
+    }
     .note {
       font-size: 12px;
       color: #888;
@@ -36,9 +44,14 @@
 </head>
 <body>
   <h2>Teams Selected Messages Export</h2>
-  <p>This extension works inside <strong>Microsoft Teams for Web</strong>.</p>
-  <p>Open <a href="https://teams.microsoft.com" target="_blank" rel="noopener">teams.microsoft.com</a> or <a href="https://teams.cloud.microsoft" target="_blank" rel="noopener">teams.cloud.microsoft</a>, sign in, and navigate to any chat or channel.</p>
-  <p>The export toolbar will appear automatically in the Teams title bar.</p>
-  <p class="note">If you don't see the toolbar, try reloading the Teams page.</p>
+  <p>This extension works <strong>inside the Microsoft Teams web page</strong>. All export buttons appear on the Teams page itself, not in this popup.</p>
+  <p><strong>How to use:</strong></p>
+  <ol class="steps">
+    <li>Open <a href="https://teams.microsoft.com" target="_blank" rel="noopener">teams.microsoft.com</a> or <a href="https://teams.cloud.microsoft" target="_blank" rel="noopener">teams.cloud.microsoft</a> and sign in</li>
+    <li>Navigate to any chat or channel</li>
+    <li>Click the <strong>Export</strong> button in the Teams title bar (top-right corner)</li>
+    <li>The export panel with all buttons (Copy MD, Clear Selection, Download MD, Download HTML, Full chat MD, Full chat HTML) will appear inside the Teams page</li>
+  </ol>
+  <p class="note">If you don't see the Export button in the Teams title bar, try reloading the Teams page.</p>
 </body>
 </html>
