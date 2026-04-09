@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Teams Selected Messages Export",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Select and export Microsoft Teams messages to Markdown or HTML. Requires an active Teams web session.",
   "icons": {
     "16": "icons/icon-16.png",
