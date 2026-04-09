@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Teams Selected Messages Export",
   "version": "0.1.0",
-  "description": "Select Microsoft Teams messages and export them to Markdown or HTML.",
+  "description": "Select and export Microsoft Teams messages to Markdown or HTML. Requires an active Microsoft Teams web session at teams.microsoft.com or teams.cloud.microsoft.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -24,7 +24,8 @@
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png"
     },
-    "default_title": "Teams Selected Messages Export"
+    "default_title": "Teams Selected Messages Export",
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {

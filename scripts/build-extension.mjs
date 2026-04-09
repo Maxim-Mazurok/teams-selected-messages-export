@@ -17,6 +17,7 @@ export async function build() {
   await fs.copyFile(path.join(extensionSrcDir, "manifest.json"), path.join(extensionDistDir, "manifest.json"));
   await fs.copyFile(path.join(extensionSrcDir, "background.js"), path.join(extensionDistDir, "background.js"));
   await fs.copyFile(path.join(extensionSrcDir, "worker-hook.js"), path.join(extensionDistDir, "worker-hook.js"));
+  await fs.copyFile(path.join(extensionSrcDir, "popup.html"), path.join(extensionDistDir, "popup.html"));
   await fs.copyFile(sourceScriptPath, path.join(extensionDistDir, "content-script.js"));
   await fs.cp(path.join(extensionSrcDir, "icons"), path.join(extensionDistDir, "icons"), { recursive: true });
 
